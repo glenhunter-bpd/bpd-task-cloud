@@ -1,22 +1,110 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { AppState } from '../types';
 import { db } from '../services/database';
-import { User, Shield, Monitor, Database, Terminal } from 'lucide-react';
+import { User, Shield, Database, Terminal, Link, CheckCircle2, AlertTriangle, Key } from 'lucide-react';
 
 interface SettingsViewProps {
   state: AppState;
 }
 
 const SettingsView: React.FC<SettingsViewProps> = ({ state }) => {
+  const [cloudUrl, setCloudUrl] = useState(localStorage.getItem('BPD_CLOUD_SUPABASE_URL') || '');
+  const [cloudKey, setCloudKey] = useState(localStorage.getItem('BPD_CLOUD_SUPABASE_ANON_KEY') || '');
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+
+  const handleLinkCloud = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cloudUrl || !cloudKey) return;
+    
+    db.saveCredentials(cloudUrl, cloudKey);
+    setSaveStatus('SUCCESS');
+    setTimeout(() => setSaveStatus(null), 3000);
+  };
+
+  const handleDisconnect = () => {
+    db.clearCredentials();
+  };
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       <header>
         <h2 className="text-2xl font-bold text-slate-800">System Settings</h2>
         <p className="text-slate-500">Global cloud environment parameters and session management.</p>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        {/* Cloud Link Management - DEBUGGER SECTION */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm md:col-span-2">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
+              <Link size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800">Cloud Link Diagnostic</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Manual Provisioning Fallback</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <p className="text-sm text-slate-500 leading-relaxed">
+                If your deployment isn't picking up the environment variables from your hosting provider, 
+                you can manually link this browser instance to your Supabase project. 
+                <span className="block mt-2 font-semibold text-indigo-600">Note: These are stored securely in your local browser cache.</span>
+              </p>
+              
+              <div className={`p-4 rounded-xl border flex items-start gap-3 ${db.getStatus() ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'}`}>
+                {db.getStatus() ? <CheckCircle2 size={18} className="mt-0.5" /> : <AlertTriangle size={18} className="mt-0.5" />}
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-wider">{db.getStatus() ? 'Connected' : 'Disconnected'}</div>
+                  <div className="text-xs opacity-80">{db.getStatus() ? 'System is synchronized with global registry.' : 'App is running in Offline/Mock mode. Local changes will not sync.'}</div>
+                </div>
+              </div>
+
+              {db.getStatus() && (
+                <button 
+                  onClick={handleDisconnect}
+                  className="text-[10px] font-black uppercase text-rose-500 hover:text-rose-700 transition-colors tracking-widest flex items-center gap-2"
+                >
+                  <Key size={12} />
+                  Revoke Browser Credentials
+                </button>
+              )}
+            </div>
+
+            <form onSubmit={handleLinkCloud} className="space-y-4 bg-slate-50 p-6 rounded-xl border border-slate-100">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1.5 tracking-widest">Supabase Project URL</label>
+                <input 
+                  type="text"
+                  placeholder="https://xyz.supabase.co"
+                  className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-xs outline-none focus:border-indigo-500 shadow-sm"
+                  value={cloudUrl}
+                  onChange={e => setCloudUrl(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1.5 tracking-widest">Anon Public API Key</label>
+                <input 
+                  type="password"
+                  placeholder="eyJhbGciOiJIUzI1NiIsInR..."
+                  className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-xs outline-none focus:border-indigo-500 shadow-sm"
+                  value={cloudKey}
+                  onChange={e => setCloudKey(e.target.value)}
+                />
+              </div>
+              <button 
+                type="submit"
+                className={`w-full py-3 rounded-xl font-bold text-sm transition-all shadow-lg ${saveStatus === 'SUCCESS' ? 'bg-emerald-600 text-white shadow-emerald-200' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-100'}`}
+              >
+                {saveStatus === 'SUCCESS' ? 'Database Linked!' : 'Save & Initialize Cloud'}
+              </button>
+            </form>
+          </div>
+        </div>
+
         {/* User Persona Switcher */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
@@ -70,7 +158,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ state }) => {
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Release Build</span>
-                <span className="font-mono font-bold text-slate-800">v2.2.0-STABLE</span>
+                <span className="font-mono font-bold text-slate-800">v3.5.0-PRO</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Environment</span>
@@ -78,8 +166,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ state }) => {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Sync Status</span>
-                <span className="text-emerald-600 font-bold flex items-center gap-1">
-                   Nominal (Live)
+                <span className={`font-bold flex items-center gap-1 ${db.getStatus() ? 'text-emerald-600' : 'text-amber-500'}`}>
+                   {db.getStatus() ? 'Nominal (Live)' : 'Local Fallback'}
                 </span>
               </div>
             </div>

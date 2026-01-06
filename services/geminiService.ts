@@ -2,13 +2,14 @@
 import { GoogleGenAI } from "@google/genai";
 import { Task } from "../types";
 
-// Always initialized with the Vercel/Netlify provided API_KEY
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Always created per-request for most up-to-date configuration.
 
+/**
+ * Performs an AI-driven operational audit of project tasks using Gemini.
+ */
 export async function analyzeProjectHealth(tasks: Task[]) {
-  if (!process.env.API_KEY) {
-    return "AI Features are disabled. Please configure your API_KEY in the environment variables.";
-  }
+  // Initialize SDK right before the call to handle potentially dynamic environment configurations.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
     Perform a professional operational audit of the following BPD (Broadband Policy & Development) tasks:
@@ -34,9 +35,11 @@ export async function analyzeProjectHealth(tasks: Task[]) {
         systemInstruction: "You are the Chief Operational Officer for the BPD team. Your tone is authoritative, efficient, and data-centric. Format the output with clear bullet points."
       }
     });
+
+    // Accessing .text directly as a property, per the latest Google GenAI SDK rules.
     return response.text;
   } catch (error) {
     console.error("Gemini AI error:", error);
-    return "The project intelligence stream is temporarily unavailable. Check your API configuration.";
+    return "The project intelligence stream is temporarily unavailable. Please retry the audit shortly.";
   }
 }

@@ -3,13 +3,42 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Task, Program, User, AppState, TaskStatus } from '../types';
 
 /**
- * BPD CLOUD DATABASE SERVICE V3.2-DIAGNOSTIC
+ * BPD CLOUD DATABASE SERVICE V3.6-ULTRA
  * 
- * Provides robust connection handling and detailed logging for deployment debugging.
+ * Optimized for static deployments. Specifically handles the lack of 
+ * process.env in browser environments by providing a manual bridge.
  */
 
-const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
-const SUPABASE_KEY = (process.env.SUPABASE_ANON_KEY || '').trim();
+const getEnv = (key: string): string => {
+  // 1. Check localStorage first (User-provided manual override)
+  const localValue = localStorage.getItem(`BPD_CLOUD_${key}`);
+  if (localValue) return localValue.trim();
+
+  // 2. Check multiple common patterns for client-side environment variables
+  // Vite, Next.js, and standard process.env patterns included
+  const variants = [
+    key,
+    `VITE_${key}`,
+    `REACT_APP_${key}`,
+    `NEXT_PUBLIC_${key}`,
+    `PUBLIC_${key}`
+  ];
+
+  // Try to find the value in various global env objects
+  for (const variant of variants) {
+    // @ts-ignore
+    if (typeof window !== 'undefined' && window.process?.env?.[variant]) {
+       // @ts-ignore
+      return window.process.env[variant].trim();
+    }
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env?.[variant]) {
+      // @ts-ignore
+      return import.meta.env[variant].trim();
+    }
+  }
+  return '';
+};
 
 class DatabaseService {
   private client: SupabaseClient | null = null;
@@ -18,13 +47,60 @@ class DatabaseService {
   private localState: AppState = { tasks: [], programs: [], users: [], currentUser: null };
 
   constructor() {
-    if (SUPABASE_URL && SUPABASE_KEY) {
-      console.log("Initializing Supabase Client...");
-      this.client = createClient(SUPABASE_URL, SUPABASE_KEY);
-      this.setupRealtimeListeners();
+    this.reconnect();
+  }
+
+  /**
+   * Attempts to establish a connection to the Supabase Cloud.
+   * Can be called with explicit credentials or will search env/storage.
+   */
+  // Added return type Promise<boolean> to fix type mismatch in initialize()
+  public async reconnect(url?: string, key?: string): Promise<boolean> {
+    const finalUrl = url || getEnv('SUPABASE_URL');
+    const finalKey = key || getEnv('SUPABASE_ANON_KEY');
+
+    if (finalUrl && finalKey) {
+      console.log("%c BPD Cloud: Initiating Handshake...", "color: #6366f1; font-weight: bold;");
+      try {
+        this.client = createClient(finalUrl, finalKey);
+        
+        // Immediate test fetch to verify credentials
+        const { error } = await this.client.from('tasks').select('id').limit(1);
+        
+        if (error) {
+           console.error("BPD Cloud: Credential validation failed", error);
+           this.isConnected = false;
+        } else {
+           console.log("%c BPD Cloud: Connection Verified!", "color: #10b981; font-weight: bold;");
+           this.setupRealtimeListeners();
+           await this.syncWithCloud();
+           this.isConnected = true;
+        }
+      } catch (e) {
+        console.error("BPD Cloud: Connection error", e);
+        this.isConnected = false;
+      }
     } else {
-      console.warn("SUPABASE_URL or KEY missing from Environment Variables. Running in Local Mock Mode.");
+      this.isConnected = false;
+      console.warn("BPD Cloud: Credentials missing. Use Settings to link database.");
     }
+    this.notifySubscribers(this.localState);
+    return this.isConnected;
+  }
+
+  public saveCredentials(url: string, key: string) {
+    localStorage.setItem('BPD_CLOUD_SUPABASE_URL', url);
+    localStorage.setItem('BPD_CLOUD_SUPABASE_ANON_KEY', key);
+    this.reconnect(url, key);
+  }
+
+  public clearCredentials() {
+    localStorage.removeItem('BPD_CLOUD_SUPABASE_URL');
+    localStorage.removeItem('BPD_CLOUD_SUPABASE_ANON_KEY');
+    this.isConnected = false;
+    this.client = null;
+    this.notifySubscribers(this.localState);
+    window.location.reload();
   }
 
   private setupRealtimeListeners() {
@@ -32,17 +108,19 @@ class DatabaseService {
 
     this.client
       .channel('bpd-realtime-global')
-      .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
-        console.log('Real-time sync triggered by cloud change in:', payload.table);
+      .on('postgres_changes', { event: '*', schema: 'public' }, () => {
         this.syncWithCloud();
       })
       .subscribe((status) => {
-        console.log('Supabase Realtime Status:', status);
+        if (status === 'SUBSCRIBED') {
+          this.isConnected = true;
+          this.notifySubscribers({ ...this.localState });
+        }
       });
   }
 
-  private async syncWithCloud() {
-    if (!this.client) return;
+  public async syncWithCloud() {
+    if (!this.client) return false;
     
     try {
       const [tasksRes, programsRes, usersRes] = await Promise.all([
@@ -52,9 +130,7 @@ class DatabaseService {
       ]);
 
       if (tasksRes.error) throw tasksRes.error;
-      if (programsRes.error) throw programsRes.error;
-      if (usersRes.error) throw usersRes.error;
-
+      
       const mappedTasks: Task[] = (tasksRes.data || []).map(t => ({
         id: t.id,
         name: t.name,
@@ -77,38 +153,33 @@ class DatabaseService {
       this.localState = {
         ...this.localState,
         tasks: mappedTasks,
-        programs: programsRes.data as Program[],
-        users: usersRes.data as User[],
+        programs: (programsRes.data || []) as Program[],
+        users: (usersRes.data || []) as User[],
       };
 
-      this.notifySubscribers(this.localState);
       this.isConnected = true;
+      this.notifySubscribers(this.localState);
+      return true;
     } catch (err) {
-      console.error('Cloud Sync Error (Check if tables exist in Supabase!):', err);
+      console.error('Cloud Sync Failed:', err);
       this.isConnected = false;
+      this.notifySubscribers({ ...this.localState });
+      return false;
     }
   }
 
   public async initialize(initialData: Partial<AppState>): Promise<boolean> {
-    if (!this.client) {
-      this.localState = {
-        tasks: initialData.tasks || [],
-        programs: initialData.programs || [],
-        users: initialData.users || [],
-        currentUser: initialData.users ? initialData.users[0] : null
-      };
-      this.notifySubscribers(this.localState);
-      return false;
-    }
-
-    await this.syncWithCloud();
+    this.localState = {
+      tasks: initialData.tasks || [],
+      programs: initialData.programs || [],
+      users: initialData.users || [],
+      currentUser: initialData.users ? initialData.users[0] : null
+    };
     
-    if (this.localState.users.length > 0 && !this.localState.currentUser) {
-      this.localState.currentUser = this.localState.users[0];
-      this.notifySubscribers(this.localState);
-    }
-
-    return this.isConnected;
+    // Fixed: Now reconnect() returns a Promise<boolean>, so cloudSuccess is correctly typed.
+    const cloudSuccess = await this.reconnect();
+    this.notifySubscribers(this.localState);
+    return cloudSuccess;
   }
 
   public subscribe(callback: (state: AppState) => void) {
@@ -120,7 +191,7 @@ class DatabaseService {
   }
 
   private notifySubscribers(state: AppState) {
-    this.subscribers.forEach(s => s(state));
+    this.subscribers.forEach(s => s({ ...state }));
   }
 
   public async addTask(task: Omit<Task, 'id' | 'updatedAt' | 'updatedBy'>) {
@@ -140,7 +211,7 @@ class DatabaseService {
       updated_by: this.localState.currentUser?.name || 'System'
     };
     await this.client.from('tasks').insert([payload]);
-    // Note: We don't need to manually sync, the Realtime listener handles it!
+    this.syncWithCloud();
   }
 
   public async updateTask(taskId: string, updates: Partial<Task>) {
@@ -152,43 +223,55 @@ class DatabaseService {
     dbUpdates.updated_at = new Date().toISOString();
     dbUpdates.updated_by = this.localState.currentUser?.name || 'System';
     await this.client.from('tasks').update(dbUpdates).eq('id', taskId);
+    this.syncWithCloud();
   }
 
   public async deleteTask(taskId: string) {
     if (!this.client) return;
     await this.client.from('tasks').delete().eq('id', taskId);
+    this.syncWithCloud();
   }
 
-  public async addProgram(program: Omit<Program, 'id' | 'createdAt' | 'createdBy'>) {
-    if (!this.client) return;
-    const payload = { ...program, id: `p-${Date.now()}` };
-    await this.client.from('programs').insert([payload]);
+  public async addProgram(p: any) { 
+    if(this.client) {
+      await this.client.from('programs').insert([{...p, id: `p-${Date.now()}`}]); 
+      this.syncWithCloud();
+    }
   }
 
   public async updateProgram(programId: string, updates: Partial<Program>) {
-    if (!this.client) return;
-    await this.client.from('programs').update(updates).eq('id', programId);
+    if (this.client) {
+      await this.client.from('programs').update(updates).eq('id', programId);
+      this.syncWithCloud();
+    }
   }
 
   public async deleteProgram(programId: string) {
-    if (!this.client) return;
-    await this.client.from('programs').delete().eq('id', programId);
+    if (this.client) {
+      await this.client.from('programs').delete().eq('id', programId);
+      this.syncWithCloud();
+    }
   }
 
-  public async addUser(user: Omit<User, 'id'>) {
-    if (!this.client) return;
-    const payload = { ...user, id: `u-${Date.now()}` };
-    await this.client.from('users').insert([payload]);
+  public async addUser(u: any) { 
+    if(this.client) {
+      await this.client.from('users').insert([{...u, id: `u-${Date.now()}`}]); 
+      this.syncWithCloud();
+    }
   }
 
   public async updateUser(userId: string, updates: Partial<User>) {
-    if (!this.client) return;
-    await this.client.from('users').update(updates).eq('id', userId);
+    if (this.client) {
+      await this.client.from('users').update(updates).eq('id', userId);
+      this.syncWithCloud();
+    }
   }
 
   public async deleteUser(userId: string) {
-    if (!this.client) return;
-    await this.client.from('users').delete().eq('id', userId);
+    if (this.client) {
+      await this.client.from('users').delete().eq('id', userId);
+      this.syncWithCloud();
+    }
   }
 
   public async setCurrentUser(userId: string) {
@@ -199,6 +282,10 @@ class DatabaseService {
 
   public getStatus(): boolean {
     return this.isConnected;
+  }
+
+  public hasCredentials(): boolean {
+    return !!(getEnv('SUPABASE_URL') && getEnv('SUPABASE_ANON_KEY'));
   }
 }
 
