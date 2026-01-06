@@ -1,16 +1,12 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  AreaChart, Area, PieChart, Pie, Cell, Legend 
+  PieChart, Pie, Cell, Legend 
 } from 'recharts';
 import { Task, AppState, TaskStatus } from '../types';
 import { db } from '../services/database';
 import { analyzeProjectHealth } from '../services/geminiService';
-import { 
-  Sparkles, Activity, Clock, CheckCircle2, AlertTriangle, 
-  ArrowRight, Flame, ShieldAlert, TrendingUp, Zap, Cpu, ArrowUpRight
-} from 'lucide-react';
+import { Sparkles, Activity, Clock, AlertTriangle, ArrowRight, Flame, ShieldAlert, TrendingUp } from 'lucide-react';
 
 interface DashboardProps {
   state: AppState;
@@ -21,28 +17,42 @@ const Dashboard: React.FC<DashboardProps> = ({ state, onNavigate }) => {
   const [aiReport, setAiReport] = useState<string | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isOffline, setIsOffline] = useState(!db.getStatus());
 
   useEffect(() => {
-    setMounted(true);
+    const timer = setTimeout(() => setMounted(true), 100);
+    const unsubscribe = db.subscribe(() => {
+      setIsOffline(!db.getStatus());
+    });
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+    };
   }, []);
 
   const programHealth = useMemo(() => {
+    const now = new Date();
     return state.programs.map(p => {
       const tasks = state.tasks.filter(t => t.program === p.name && t.status !== TaskStatus.COMPLETED);
       let heatScore = 0;
       tasks.forEach(t => {
         let weight = t.priority === 'Critical' ? 20 : t.priority === 'High' ? 10 : t.priority === 'Medium' ? 5 : 2;
-        heatScore += weight;
+        const due = new Date(t.plannedEndDate);
+        const diff = due.getTime() - now.getTime();
+        let multiplier = 1;
+        if (diff < 0) multiplier = 3;
+        else if (diff < 2 * 24 * 60 * 60 * 1000) multiplier = 2.5;
+        heatScore += weight * multiplier;
       });
       return { ...p, heatScore, activeTasks: tasks.length };
     }).sort((a, b) => b.heatScore - a.heatScore);
   }, [state.tasks, state.programs]);
 
-  const stats = [
-    { label: 'Active Ops', value: state.tasks.filter(t => t.status !== TaskStatus.COMPLETED).length, icon: Activity, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-    { label: 'Completion', value: `${Math.round((state.tasks.filter(t => t.status === TaskStatus.COMPLETED).length / state.tasks.length) * 100)}%`, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'High Priority', value: state.tasks.filter(t => t.priority === 'Critical' || t.priority === 'High').length, icon: Flame, color: 'text-rose-600', bg: 'bg-rose-50' },
-    { label: 'Cloud Nodes', value: state.users.length, icon: Cpu, color: 'text-amber-600', bg: 'bg-amber-50' },
+  const statusData = [
+    { name: 'Pending', value: state.tasks.filter(t => t.status === TaskStatus.OPEN).length, color: '#94a3b8' },
+    { name: 'Active', value: state.tasks.filter(t => t.status === TaskStatus.IN_PROGRESS).length, color: '#6366f1' },
+    { name: 'Finalized', value: state.tasks.filter(t => t.status === TaskStatus.COMPLETED).length, color: '#10b981' },
+    { name: 'On Hold', value: state.tasks.filter(t => t.status === TaskStatus.ON_HOLD).length, color: '#f59e0b' },
   ];
 
   const handleGenerateAI = async () => {
@@ -53,114 +63,123 @@ const Dashboard: React.FC<DashboardProps> = ({ state, onNavigate }) => {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
-      {/* Header Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => (
-          <div key={stat.label} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color}`}>
-                <stat.icon size={20} strokeWidth={2.5} />
+    <div className="space-y-8 animate-in fade-in duration-500 pb-12">
+      {isOffline && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3 text-amber-800">
+            <AlertTriangle size={20} className="text-amber-500" />
+            <p className="text-sm font-semibold">Running in restricted offline mode. Connect to BPD Nexus to sync with other nodes.</p>
+          </div>
+          <button onClick={() => onNavigate?.('settings')} className="text-xs font-bold uppercase text-amber-700 bg-white border border-amber-200 px-4 py-2 rounded-xl hover:bg-amber-100 transition-all">Link Registry</button>
+        </div>
+      )}
+
+      <header>
+        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Executive Dashboard</h2>
+        <p className="text-slate-500 font-medium">Monitoring grant progress and office capacity across the CNMI network.</p>
+      </header>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {programHealth.slice(0, 4).map(p => (
+          <div key={p.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm transition-all hover:shadow-md hover:-translate-y-1">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{p.name} GRANT</div>
+            <div className="flex items-end justify-between">
+              <div>
+                <div className="text-3xl font-extrabold text-slate-900">{p.activeTasks}</div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase">Active Records</div>
               </div>
-              <ArrowUpRight size={16} className="text-slate-300" />
+              <div className={`px-2 py-1 rounded-lg text-[10px] font-black ${p.heatScore > 40 ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                {p.heatScore > 40 ? 'RISK: HIGH' : 'NOMINAL'}
+              </div>
             </div>
-            <div className="text-3xl font-black text-slate-900 tracking-tight">{stat.value}</div>
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{stat.label}</div>
+            <div className="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+              <div 
+                className={`h-full transition-all duration-1000 ${p.heatScore > 40 ? 'bg-rose-500' : 'bg-indigo-500'}`}
+                style={{ width: `${Math.min(100, (p.activeTasks / 10) * 100)}%` }}
+              />
+            </div>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Risk Matrix */}
-        <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="text-xl font-black text-slate-900 tracking-tight">Strategic Workload Distribution</h3>
-              <p className="text-sm text-slate-400 font-medium">Cross-departmental capacity tracking</p>
-            </div>
-            <div className="flex gap-2">
-              <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                <span className="text-[9px] font-black text-slate-500 uppercase">Live Nexus Data</span>
+        <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm min-h-[400px]">
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-8">Workload Distribution</h3>
+          {mounted && (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={programHealth}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fontWeight: 700, fill: '#64748b'}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#64748b'}} />
+                <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }} />
+                <Bar dataKey="activeTasks" fill="#6366f1" radius={[6, 6, 6, 6]} barSize={32} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm min-h-[400px]">
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-8 text-center">Global Performance</h3>
+          {mounted && (
+            <ResponsiveContainer width="100%" height={260}>
+              <PieChart>
+                <Pie data={statusData} cx="50%" cy="50%" innerRadius={70} outerRadius={90} paddingAngle={10} dataKey="value">
+                  {statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+          <div className="flex flex-wrap justify-center gap-4 mt-4">
+            {statusData.map(s => (
+              <div key={s.name} className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }}></div>
+                <span className="text-[10px] font-bold text-slate-500 uppercase">{s.name}</span>
               </div>
-            </div>
-          </div>
-          
-          <div className="flex-1 w-full min-h-[300px]">
-            {mounted && (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={programHealth}>
-                  <defs>
-                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 800, fill: '#64748b'}} />
-                  <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}
-                  />
-                  <Area type="monotone" dataKey="activeTasks" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorValue)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
+            ))}
           </div>
         </div>
 
-        {/* AI Sentinel Hub */}
-        <div className="lg:col-span-1 bg-slate-950 p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden group border border-white/5">
-          <div className="absolute -top-24 -right-24 w-64 h-64 bg-emerald-500/20 blur-[100px] rounded-full group-hover:bg-emerald-500/30 transition-all duration-700"></div>
-          
-          <div className="relative z-10 h-full flex flex-col">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="bg-emerald-500/10 p-3 rounded-2xl text-emerald-400 border border-emerald-500/20">
-                <Sparkles size={24} className="animate-pulse" />
+        <div className="lg:col-span-3 bg-slate-900 p-10 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
+             <Sparkles size={300} />
+          </div>
+          <div className="relative z-10 max-w-3xl">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-indigo-500/20 rounded-2xl text-indigo-400">
+                <Activity size={24} />
               </div>
-              <div>
-                <h3 className="text-xl font-black tracking-tight">AI Sentinel Hub</h3>
-                <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest">Enterprise Reasoning V5</p>
-              </div>
+              <h3 className="text-2xl font-extrabold tracking-tight">AI Operational Sentinel</h3>
             </div>
-
+            
             {!aiReport && !loadingAi && (
-              <div className="flex-1 flex flex-col justify-center">
-                <p className="text-slate-400 text-sm leading-relaxed mb-8 font-medium">
-                  Trigger an autonomous neural audit. The Sentinel will scan for dependency deadlocks and predictive resource gaps.
+              <>
+                <p className="text-slate-400 mb-8 text-lg leading-relaxed">
+                  The Gemini 3 Intelligence Engine can perform a comprehensive audit of all BPD grant operations to identify bottlenecks, workload imbalances, and deadline risks.
                 </p>
                 <button 
                   onClick={handleGenerateAI}
-                  className="w-full bg-emerald-500 text-slate-950 font-black py-4 rounded-2xl hover:bg-emerald-400 transition-all shadow-[0_0_30px_rgba(16,185,129,0.2)] active:scale-95 text-xs uppercase tracking-widest"
+                  className="bg-white text-slate-900 px-8 py-4 rounded-2xl font-bold hover:bg-indigo-50 transition-all shadow-xl active:scale-95 flex items-center gap-2"
                 >
-                  Launch Neural Scan
+                  <Sparkles size={18} />
+                  Execute Comprehensive Audit
                 </button>
-              </div>
+              </>
             )}
 
             {loadingAi && (
-              <div className="flex-1 flex flex-col items-center justify-center">
-                <div className="relative mb-6">
-                  <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Zap size={20} className="text-emerald-500 animate-pulse" />
-                  </div>
-                </div>
-                <p className="text-emerald-500 font-black text-[10px] uppercase tracking-[0.3em] animate-pulse">Analyzing Registry Topology</p>
+              <div className="flex flex-col items-center py-10">
+                <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-6"></div>
+                <p className="text-indigo-400 font-bold tracking-widest text-xs uppercase animate-pulse">Reconciling Office Data Streams...</p>
               </div>
             )}
 
             {aiReport && (
-              <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-                <div className="bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 text-slate-300 text-xs leading-relaxed font-medium animate-in zoom-in-95 duration-500">
-                  {aiReport}
+              <div className="bg-slate-800/40 backdrop-blur-md p-8 rounded-3xl border border-slate-700/50 text-slate-100 font-medium text-base animate-in zoom-in-95 leading-relaxed">
+                <div className="whitespace-pre-wrap">{aiReport}</div>
+                <div className="mt-8 pt-6 border-t border-slate-700 flex justify-end">
+                  <button onClick={() => setAiReport(null)} className="text-slate-500 hover:text-white transition-colors text-[11px] font-black uppercase tracking-widest">Acknowledge Audit</button>
                 </div>
-                <button 
-                  onClick={() => setAiReport(null)}
-                  className="mt-6 w-full py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors"
-                >
-                  Reset Sentinel View
-                </button>
               </div>
             )}
           </div>

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { TaskStatus } from './types';
 
@@ -60,10 +59,10 @@ export const INITIAL_DATA = {
     }
   ],
   programs: [
-    { id: "p-bead", name: "BEAD", description: "Broadband Equity, Access, and Deployment", color: "indigo", createdAt: "2024-01-01T00:00:00Z", createdBy: "u-admin" },
-    { id: "p-cpf", name: "CPF", description: "Capital Projects Fund", color: "emerald", createdAt: "2024-01-01T00:00:00Z", createdBy: "u-admin" },
-    { id: "p-usda", name: "USDA", description: "USDA Broadband Technical Assistance", color: "amber", createdAt: "2024-01-01T00:00:00Z", createdBy: "u-admin" },
-    { id: "p-bpd", name: "BPD", description: "Broadband Policy and Development", color: "rose", createdAt: "2024-01-01T00:00:00Z", createdBy: "u-admin" }
+    { id: "p-bead", name: "BEAD", description: "Broadband Equity, Access, and Deployment", color: "sky", createdAt: "2024-01-01T00:00:00Z", createdBy: "u-admin" },
+    { id: "p-cpf", name: "CPF", description: "Capital Projects Fund", color: "cyan", createdAt: "2024-01-01T00:00:00Z", createdBy: "u-admin" },
+    { id: "p-usda", name: "USDA", description: "USDA Broadband Technical Assistance", color: "blue", createdAt: "2024-01-01T00:00:00Z", createdBy: "u-admin" },
+    { id: "p-bpd", name: "BPD", description: "Broadband Policy and Development", color: "indigo", createdAt: "2024-01-01T00:00:00Z", createdBy: "u-admin" }
   ],
   users: [
     { id: "u-admin", name: "System Admin", email: "admin@bpd.gov", role: "Admin", department: "Operations" },
@@ -75,10 +74,10 @@ export const INITIAL_DATA = {
 };
 
 export const PROGRAM_COLORS: Record<string, string> = {
-  BEAD: 'bg-indigo-50 text-indigo-700 border-indigo-100',
-  CPF: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-  USDA: 'bg-amber-50 text-amber-700 border-amber-100',
-  BPD: 'bg-rose-50 text-rose-700 border-rose-100',
+  BEAD: 'bg-sky-50 text-sky-700 border-sky-100',
+  CPF: 'bg-cyan-50 text-cyan-700 border-cyan-100',
+  USDA: 'bg-blue-50 text-blue-700 border-blue-100',
+  BPD: 'bg-indigo-50 text-indigo-700 border-indigo-100',
 };
 
 export const getProgramColor = (programName: string): string => {
@@ -86,8 +85,8 @@ export const getProgramColor = (programName: string): string => {
 };
 
 export const STATUS_COLORS: Record<TaskStatus, string> = {
-  [TaskStatus.OPEN]: 'bg-slate-900 text-white',
-  [TaskStatus.IN_PROGRESS]: 'bg-indigo-500 text-white shadow-lg shadow-indigo-100',
-  [TaskStatus.COMPLETED]: 'bg-emerald-500 text-white shadow-lg shadow-emerald-100',
-  [TaskStatus.ON_HOLD]: 'bg-amber-400 text-slate-950 shadow-lg shadow-amber-100',
+  [TaskStatus.OPEN]: 'bg-slate-100 text-slate-600',
+  [TaskStatus.IN_PROGRESS]: 'bg-indigo-50 text-indigo-600 border border-indigo-100',
+  [TaskStatus.COMPLETED]: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+  [TaskStatus.ON_HOLD]: 'bg-amber-50 text-amber-600 border border-amber-100',
 };

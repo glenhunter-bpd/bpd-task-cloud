@@ -1,37 +1,33 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BPD Cloud Enterprise</title>
+  <title>CNMI BPD Cloud Registry</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --brand-emerald: #10b981;
-      --brand-indigo: #6366f1;
-    }
     body { 
-      font-family: 'Inter', sans-serif; 
-      letter-spacing: -0.011em;
-      -webkit-font-smoothing: antialiased;
+      font-family: 'Plus Jakarta Sans', sans-serif; 
+      background-color: #f8fafc;
     }
-    .glass-header {
-      background: rgba(255, 255, 255, 0.7);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-    }
-    .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+    /* Smooth transition for hover effects */
+    .transition-custom { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     
-    @keyframes pulse-subtle {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(226, 232, 240, 0.8);
     }
-    .animate-pulse-subtle { animation: pulse-subtle 3s infinite ease-in-out; }
+    
+    .sidebar-gradient {
+      background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+    }
   </style>
 <script type="importmap">
 {
@@ -48,8 +44,8 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-<body class="bg-[#F8FAFC] text-slate-900 overflow-hidden">
-  <div id="root" class="h-screen w-screen overflow-hidden"></div>
+<body class="text-slate-900">
+  <div id="root"></div>
 <script type="module" src="/index.tsx"></script>
 </body>
 </html>

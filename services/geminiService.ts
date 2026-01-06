@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { Task } from "../types";
 
@@ -42,7 +41,7 @@ export async function analyzeProjectHealth(tasks: Task[]) {
 
 /**
  * Autonomous AI Sentinel: Scans for specific operational anomalies.
- * Returns a list of structured alerts.
+ * Returns a list of structured alerts with specific task context.
  */
 export async function runSentinelAnalysis(tasks: Task[]) {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -65,6 +64,7 @@ export async function runSentinelAnalysis(tasks: Task[]) {
       owner: t.assignedTo
     })))}
 
+    IMPORTANT: For every alert generated, you must explicitly include the Task Name and Task ID in the 'message' field so the team can identify the record immediately.
     Return exactly 2-3 highest-priority alerts in JSON format.
   `;
 
@@ -73,15 +73,21 @@ export async function runSentinelAnalysis(tasks: Task[]) {
       model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
-        systemInstruction: "You are an autonomous background observer. Identify high-leverage anomalies. Respond ONLY with a JSON array of objects, each containing 'title' and 'message' (1 sentence max each).",
+        systemInstruction: "You are an autonomous background observer and risk analyst. Identify high-leverage anomalies. Respond ONLY with a JSON array of objects. Titles should be concise and in UPPERCASE (e.g., 'CRITICAL DEADLINE RISK'). Messages must include the specific task name and ID, and be exactly 1-2 sentences long.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
           items: {
             type: Type.OBJECT,
             properties: {
-              title: { type: Type.STRING },
-              message: { type: Type.STRING }
+              title: { 
+                type: Type.STRING,
+                description: "Short, uppercase categorical title of the alert."
+              },
+              message: { 
+                type: Type.STRING,
+                description: "Detailed description including the Task Name and Task ID."
+              }
             },
             required: ["title", "message"]
           }
