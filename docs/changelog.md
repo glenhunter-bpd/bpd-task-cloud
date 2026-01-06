@@ -1,23 +1,18 @@
 
 # BPD Cloud Changelog
 
-## [v4.0.0-PRO] - 2025-03-10
+## [v4.2.0-GRAPH] - 2025-03-14
 ### Added
-- **Dependency Nexus**: Tasks can now be dependent on other tasks.
-- **Blocker Awareness**: Tasks with incomplete prerequisites are visually flagged as "Blocked".
-- **Execution Validation**: Prevention logic for completing tasks that have outstanding prerequisites.
-- **Enhanced Task Modal**: Dual-column layout in modal with searchable dependency selector.
+- **Nexus Timeline**: Full Gantt-style visualizer for operational tasks.
+- **SVG Dependency Lines**: Real-time cubic-bezier connectors between linked operations.
+- **Critical Path Highlighting**: Visual indicators for tasks that are currently "Blocking" others.
+- **Lock Metadata**: Visual lock icon for tasks waiting on prerequisites.
 
 ### Improved
-- **Nexus V3 Protocol**: Refined cryptographic identity linking for cloud mutations.
-- **UI Refresh**: Indigo/Slate high-contrast theme optimization for readability.
+- **Navigation**: Sidebar refresh with GitGraph icons for timeline access.
+- **UI Performance**: Memoized dependency line calculations for smooth timeline scrolling.
 
-## [v3.6.0-ULTRA] - 2025-03-08
+## [v4.1.0-PULSE] - 2025-03-12
 ### Added
-- **Manual Credential Bridge**: Fixed "Offline Mode" in static deployments.
-- **LocalStorage persistence**: Browser-cached API credentials support.
-
-## [v3.5.0-PRO] - 2025-02-15
-### Added
-- **Gemini AI Audit v2**: Structured action plans.
-- **Sync Indicators**: Header status hub.
+- **Nexus Pulse Engine**: Real-time event tracking for collaborator updates.
+- **Dependency Alerts**: Automated notifications when a prerequisite task is completed.

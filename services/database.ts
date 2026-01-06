@@ -1,11 +1,11 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Task, Program, User, AppState, TaskStatus } from '../types';
+import { Task, Program, User, AppState, TaskStatus, AppNotification } from '../types';
 
 /**
- * BPD CLOUD DATABASE SERVICE V4.0-NEXUS
+ * BPD CLOUD DATABASE SERVICE V4.1-PULSE
  * 
- * Optimized for Task Dependency Graph management and static deployments.
+ * Featuring the Nexus Pulse notification engine for real-time collaborator tracking.
  */
 
 const getEnv = (key: string): string => {
@@ -33,7 +33,13 @@ class DatabaseService {
   private client: SupabaseClient | null = null;
   private subscribers: Array<(state: AppState) => void> = [];
   private isConnected: boolean = false;
-  private localState: AppState = { tasks: [], programs: [], users: [], currentUser: null };
+  private localState: AppState = { 
+    tasks: [], 
+    programs: [], 
+    users: [], 
+    currentUser: null,
+    notifications: []
+  };
 
   constructor() {
     this.reconnect();
@@ -52,6 +58,7 @@ class DatabaseService {
            this.setupRealtimeListeners();
            await this.syncWithCloud();
            this.isConnected = true;
+           this.addNotification('SYSTEM', 'Cloud Link Established', 'Nexus protocol v4.1 is active.', 'info');
         } else {
            this.isConnected = false;
         }
@@ -87,12 +94,7 @@ class DatabaseService {
       .on('postgres_changes', { event: '*', schema: 'public' }, () => {
         this.syncWithCloud();
       })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          this.isConnected = true;
-          this.notifySubscribers({ ...this.localState });
-        }
-      });
+      .subscribe();
   }
 
   public async syncWithCloud() {
@@ -123,8 +125,11 @@ class DatabaseService {
         startDate: t.start_date || new Date().toISOString().split('T')[0],
         actualEndDate: t.actual_end_date || '',
         notes: [],
-        dependentTasks: t.dependent_tasks || [] // Support for V4 dependency nexus
+        dependentTasks: t.dependent_tasks || []
       }));
+
+      // --- Nexus Pulse: Change Detection ---
+      this.detectCloudChanges(this.localState.tasks, mappedTasks);
 
       this.localState = {
         ...this.localState,
@@ -143,8 +148,59 @@ class DatabaseService {
     }
   }
 
+  private detectCloudChanges(oldTasks: Task[], newTasks: Task[]) {
+    if (oldTasks.length === 0) return; // Skip initial load
+
+    newTasks.forEach(newTask => {
+      const oldTask = oldTasks.find(t => t.id === newTask.id);
+      
+      // Only notify if someone else made the change
+      if (newTask.updatedBy !== this.localState.currentUser?.name) {
+        if (!oldTask) {
+          this.addNotification('TASK_UPDATE', 'New Registry Entry', `${newTask.updatedBy} registered "${newTask.name}"`, 'info');
+        } else if (oldTask.status !== newTask.status) {
+          this.addNotification('TASK_UPDATE', 'Status Transition', `"${newTask.name}" moved to ${newTask.status.replace('_', ' ')} by ${newTask.updatedBy}`, 'high');
+          
+          // Dependency Unlocked Logic
+          if (newTask.status === TaskStatus.COMPLETED) {
+             const dependentOnThis = newTasks.filter(t => t.dependentTasks.includes(newTask.id));
+             dependentOnThis.forEach(depTask => {
+                if (depTask.assignedToId === this.localState.currentUser?.id) {
+                   this.addNotification('DEPENDENCY', 'Nexus Blocker Cleared', `Prerequisite for "${depTask.name}" is now complete.`, 'high');
+                }
+             });
+          }
+        }
+      }
+    });
+  }
+
+  private addNotification(type: any, title: string, message: string, priority: 'info' | 'high') {
+    const newNote: AppNotification = {
+      id: `nt-${Date.now()}-${Math.random()}`,
+      type,
+      title,
+      message,
+      timestamp: new Date().toISOString(),
+      read: false,
+      priority
+    };
+    this.localState.notifications = [newNote, ...(this.localState.notifications || [])].slice(0, 50);
+  }
+
+  public markNotificationsRead() {
+    this.localState.notifications = this.localState.notifications?.map(n => ({ ...n, read: true }));
+    this.notifySubscribers(this.localState);
+  }
+
+  public clearNotifications() {
+    this.localState.notifications = [];
+    this.notifySubscribers(this.localState);
+  }
+
   public async initialize(initialData: Partial<AppState>): Promise<boolean> {
     this.localState = {
+      ...this.localState,
       tasks: initialData.tasks || [],
       programs: initialData.programs || [],
       users: initialData.users || [],
@@ -180,7 +236,7 @@ class DatabaseService {
       status: task.status,
       progress: task.progress,
       planned_end_date: task.plannedEndDate,
-      dependent_tasks: task.dependentTasks, // Support for V4
+      dependent_tasks: task.dependentTasks,
       updated_at: new Date().toISOString(),
       updated_by: this.localState.currentUser?.name || 'System'
     };

@@ -13,6 +13,18 @@ export enum TaskPriority {
   CRITICAL = 'Critical'
 }
 
+export type NotificationType = 'TASK_UPDATE' | 'SYSTEM' | 'DEPENDENCY' | 'ALERT';
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  timestamp: string;
+  read: boolean;
+  priority: 'info' | 'high';
+}
+
 export interface Note {
   id: string;
   content: string;
@@ -63,4 +75,5 @@ export interface AppState {
   programs: Program[];
   users: User[];
   currentUser: User | null;
+  notifications?: AppNotification[];
 }

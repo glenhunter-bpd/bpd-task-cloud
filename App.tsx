@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from './services/database';
 import { INITIAL_DATA } from './constants';
-import { AppState } from './types';
+import { AppState, AppNotification } from './types';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import TaskList from './components/TaskList';
@@ -11,7 +11,8 @@ import DocsViewer from './components/DocsViewer';
 import TeamView from './components/TeamView';
 import GrantsView from './components/GrantsView';
 import SettingsView from './components/SettingsView';
-import { Bell, Search, AlertCircle, CheckCircle, Wifi, WifiOff } from 'lucide-react';
+import TimelineView from './components/TimelineView'; // New V4.2 Import
+import { Bell, Search, AlertCircle, CheckCircle, Wifi, WifiOff, Trash2, Clock, Check, Inbox } from 'lucide-react';
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState('dashboard');
@@ -24,8 +25,6 @@ const App: React.FC = () => {
   useEffect(() => {
     const initApp = async () => {
       setHasKeys(db.hasCredentials());
-      
-      // Initialize with mock data first, then attempt cloud sync
       const success = await db.initialize(INITIAL_DATA);
       setIsCloudConnected(success);
       
@@ -70,6 +69,7 @@ const App: React.FC = () => {
       case 'dashboard': return <Dashboard state={state} onNavigate={setActiveView} />;
       case 'tasks': return <TaskList state={state} />;
       case 'kanban': return <KanbanBoard state={state} />;
+      case 'timeline': return <TimelineView state={state} />; // New V4.2 Case
       case 'grants': return <GrantsView state={state} />;
       case 'team': return <TeamView state={state} />;
       case 'docs': return <DocsViewer />;
@@ -78,26 +78,46 @@ const App: React.FC = () => {
     }
   };
 
+  const unreadCount = state.notifications?.filter(n => !n.read).length || 0;
+
+  const handleMarkRead = () => {
+    db.markNotificationsRead();
+  };
+
+  const handleClearNotifications = () => {
+    db.clearNotifications();
+    setShowNotifications(false);
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch(type) {
+      case 'TASK_UPDATE': return <Inbox size={14} className="text-indigo-500" />;
+      case 'DEPENDENCY': return <CheckCircle size={14} className="text-emerald-500" />;
+      case 'SYSTEM': return <Wifi size={14} className="text-amber-500" />;
+      case 'ALERT': return <AlertCircle size={14} className="text-rose-500" />;
+      default: return <Clock size={14} className="text-slate-500" />;
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-slate-50">
       <Sidebar activeView={activeView} setActiveView={setActiveView} />
       
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* V3 PRO Header */}
-        <header className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm shadow-slate-100/50">
+        {/* V4.1 Nexus Pulse Header */}
+        <header className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between sticky top-0 z-50 shadow-sm shadow-slate-100/50">
           <div className="flex items-center gap-6 flex-1">
              <div className="hidden md:flex relative w-full max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input 
                   type="text" 
                   placeholder="Universal registry search..."
-                  className="w-full bg-slate-50 border-none rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500/10"
+                  className="w-full bg-slate-50 border-none rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500/10 font-medium"
                 />
              </div>
           </div>
 
           <div className="flex items-center gap-5">
-            {/* Improved Cloud Status Indicator */}
             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-black transition-all ${
               isCloudConnected 
                 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
@@ -111,36 +131,67 @@ const App: React.FC = () => {
 
             <div className="relative" ref={notificationRef}>
               <button 
-                onClick={() => setShowNotifications(!showNotifications)}
-                className={`relative p-2 rounded-lg transition-colors ${showNotifications ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:text-indigo-600'}`}
+                onClick={() => {
+                  setShowNotifications(!showNotifications);
+                  if (!showNotifications) handleMarkRead();
+                }}
+                className={`relative p-2.5 rounded-xl transition-all ${showNotifications ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-100'}`}
               >
                 <Bell size={20} />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 border-2 border-white rounded-full"></span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] font-black border-2 border-white rounded-full">
+                    {unreadCount}
+                  </span>
+                )}
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden animate-in zoom-in-95 duration-200 origin-top-right">
-                  <div className="p-4 border-b border-slate-50 flex items-center justify-between">
-                    <h4 className="font-bold text-slate-800">System Logs</h4>
-                    <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold uppercase">Realtime</span>
-                  </div>
-                  <div className="max-h-[300px] overflow-y-auto">
-                    <div className="p-4 hover:bg-slate-50 transition-colors flex gap-3 border-b border-slate-50 last:border-0">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isCloudConnected ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                        {isCloudConnected ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-700 font-medium">
-                          {isCloudConnected 
-                            ? "Successfully established secure cloud socket." 
-                            : !hasKeys 
-                              ? "API keys missing. Database operations restricted." 
-                              : "Connecting to Supabase... Using local fallback."}
-                        </p>
-                        <span className="text-[10px] text-slate-400 mt-1 block">System Event</span>
-                      </div>
+                <div className="absolute right-0 mt-3 w-[360px] bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden animate-in zoom-in-95 duration-200 origin-top-right">
+                  <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                    <div className="flex items-center gap-2">
+                       <h4 className="font-bold text-slate-800 text-sm">Nexus Pulse Feed</h4>
+                       <span className="text-[9px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Real-time</span>
                     </div>
+                    <button 
+                      onClick={handleClearNotifications}
+                      className="text-[9px] font-black uppercase text-slate-400 hover:text-rose-500 transition-colors tracking-tighter"
+                    >
+                      Clear All
+                    </button>
                   </div>
+                  
+                  <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                    {state.notifications && state.notifications.length > 0 ? (
+                      state.notifications.map((n) => (
+                        <div key={n.id} className={`p-4 hover:bg-slate-50/80 transition-all flex gap-3 border-b border-slate-50 last:border-0 relative ${!n.read ? 'bg-indigo-50/30' : ''}`}>
+                          {!n.read && <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-8 bg-indigo-500 rounded-full" />}
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-white border border-slate-100 shadow-sm`}>
+                            {getNotificationIcon(n.type)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-0.5">
+                               <p className="text-xs text-slate-900 font-bold truncate">{n.title}</p>
+                               <span className="text-[9px] text-slate-400 font-medium">
+                                 {new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                               </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-2">{n.message}</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-12 flex flex-col items-center justify-center opacity-40">
+                         <Inbox size={32} className="text-slate-300 mb-2" />
+                         <p className="text-xs font-bold uppercase tracking-widest">Registry feed is clear</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {state.notifications && state.notifications.length > 0 && (
+                    <div className="p-3 bg-slate-50 border-t border-slate-100 text-center">
+                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">End of Cloud Log</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -165,7 +216,7 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-8 scroll-smooth custom-scrollbar">
           <div className="max-w-7xl mx-auto">
             {!hasKeys && (
-              <div className="mb-6 p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-center justify-between">
+              <div className="mb-6 p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-center justify-between animate-in slide-in-from-top-4">
                 <div className="flex items-center gap-3 text-rose-700 text-sm font-medium">
                   <AlertCircle size={18} />
                   <span>Deployment Warning: Supabase Environment Variables are not visible to the browser.</span>

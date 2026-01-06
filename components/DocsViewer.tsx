@@ -1,10 +1,11 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Book, ChevronRight, FileText, Info } from 'lucide-react';
 
 const DOCS = [
   { id: 'arch', name: 'System Architecture', file: 'docs/architecture.md', icon: Info },
-  { id: 'sync', name: 'Sync Protocol v4', file: 'docs/sync_protocol.md', icon: Book },
+  { id: 'sync', name: 'Sync Protocol v4.1', file: 'docs/sync_protocol.md', icon: Book },
   { id: 'history', name: 'Version History', file: 'docs/changelog.md', icon: FileText },
 ];
 
@@ -18,11 +19,12 @@ const DocsViewer: React.FC = () => {
       try {
         let text = "";
         if (selectedDoc.id === 'arch') {
-          text = "# BPD Cloud Architecture v4.0\n\n## System Overview\nThe BPD Cloud Registry V4 introduces the **Dependency Nexus**, a task-graph engine that manages prerequisites across the global cloud.\n\n## Tech Stack\n- **Frontend Core**: React 19 + Tailwind CSS.\n- **Data Layer**: Supabase (PostgreSQL + Realtime Engine).\n- **Nexus Engine**: Custom V4 Hierarchical Resolution.\n\n## Pillars\n1. **Dependency Nexus**: Tasks can now block other tasks until prerequisites are closed.\n2. **Cloud-First**: Centralized truth.\n3. **Resilience**: LocalStorage credential fallback.";
+          text = "# BPD Cloud Architecture v4.1\n\n## System Overview\nThe BPD Cloud Registry V4.1 introduces the **Nexus Pulse**, a task-graph engine with integrated collaborator awareness.\n\n## Tech Stack\n- **Frontend Core**: React 19 + Tailwind CSS.\n- **Data Layer**: Supabase (PostgreSQL + Realtime Engine).\n- **Nexus Pulse**: Real-time event detection and notification loop.\n\n## Pillars\n1. **Nexus Pulse**: New in V4.1. Diffs cloud state to alert you when colleagues update the registry.\n2. **Dependency Nexus**: Tasks can block other tasks until prerequisites are closed.\n3. **Resilience**: LocalStorage credential fallback.";
         } else if (selectedDoc.id === 'sync') {
-          text = "# BPD Cloud Sync Protocol v4\n\n## The Handshake\nThe system executes a 3-step handshake: Credential Discovery, Ping Test, and WebSocket Attachment.\n\n## Nexus Implementation\nV4 introduces Dependency Tracking. When a task status changes, the Nexus engine re-evaluates the blockage status of all related tasks in the registry stream.\n\n## Conflict Resolution\nLast-Write-Wins (LWW) strategy is used, backed by database-level timestamps.";
+          text = "# BPD Cloud Sync Protocol v4.1\n\n## The Handshake\nThe system executes a 3-step handshake: Credential Discovery, Ping Test, and WebSocket Attachment.\n\n## Pulse Implementation\nV4.1 introduces State Diffing. The `DatabaseService` maintains a local shadow-state and compares it to incoming cloud payloads. If a mismatch is found (and the author is an external staff member), a Nexus Pulse notification is broadcast to the UI.\n\n## Conflict Resolution\nLast-Write-Wins (LWW) strategy is used, backed by database-level timestamps.";
         } else {
-          text = "# Version History\n\n## [v4.0.0-PRO] - 2025-03-10\n### Added\n- **Dependency Nexus**: Multi-task linking and blocking logic.\n- **Blocker UI**: Visual badges for dependent tasks.\n- **Validation**: Prevention of completing blocked items.\n\n## [v3.6.0-ULTRA] - 2025-03-08\n### Added\n- **Manual Credential Bridge**: Fix for Offline Mode in static deployments.";
+          // Fixed the unescaped double quotes around "unblocked" to resolve the "Cannot find name 'unblocked'" error.
+          text = "# Version History\n\n## [v4.1.0-PULSE] - 2025-03-12\n### Added\n- **Nexus Pulse**: Real-time notification feed for cloud changes.\n- **Dependency Resolution Alerts**: Automated \"unblocked\" notifications.\n\n## [v4.0.0-PRO] - 2025-03-10\n### Added\n- **Dependency Nexus**: Multi-task linking and blocking logic.\n- **Blocker UI**: Visual badges for dependent tasks.";
         }
         setContent(text);
       } catch (e) {
