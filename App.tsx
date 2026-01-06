@@ -11,7 +11,8 @@ import DocsViewer from './components/DocsViewer';
 import TeamView from './components/TeamView';
 import GrantsView from './components/GrantsView';
 import SettingsView from './components/SettingsView';
-import TimelineView from './components/TimelineView'; // New V4.2 Import
+import TimelineView from './components/TimelineView';
+import MyMission from './components/MyMission'; // New V4.3 Import
 import { Bell, Search, AlertCircle, CheckCircle, Wifi, WifiOff, Trash2, Clock, Check, Inbox } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -67,9 +68,10 @@ const App: React.FC = () => {
   const renderView = () => {
     switch (activeView) {
       case 'dashboard': return <Dashboard state={state} onNavigate={setActiveView} />;
+      case 'mission': return <MyMission state={state} />; // New V4.3 Case
       case 'tasks': return <TaskList state={state} />;
       case 'kanban': return <KanbanBoard state={state} />;
-      case 'timeline': return <TimelineView state={state} />; // New V4.2 Case
+      case 'timeline': return <TimelineView state={state} />;
       case 'grants': return <GrantsView state={state} />;
       case 'team': return <TeamView state={state} />;
       case 'docs': return <DocsViewer />;

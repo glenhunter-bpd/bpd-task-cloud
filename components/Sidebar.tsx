@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, CheckSquare, BarChart2, Users, Settings, Cloud, FileText, Landmark, Zap, GitGraph } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, BarChart2, Users, Settings, Cloud, FileText, Landmark, Zap, GitGraph, Target } from 'lucide-react';
 
 interface SidebarProps {
   activeView: string;
@@ -9,10 +9,11 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView }) => {
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'dashboard', label: 'Global Dashboard', icon: LayoutDashboard },
+    { id: 'mission', label: 'My Mission', icon: Target }, // New V4.3 View
     { id: 'tasks', label: 'All Tasks', icon: CheckSquare },
     { id: 'kanban', label: 'Kanban Board', icon: BarChart2 },
-    { id: 'timeline', label: 'Nexus Timeline', icon: GitGraph }, // New V4.2 View
+    { id: 'timeline', label: 'Nexus Timeline', icon: GitGraph },
     { id: 'grants', label: 'Grants & Programs', icon: Landmark },
     { id: 'team', label: 'Team Members', icon: Users },
     { id: 'docs', label: 'Documentation', icon: FileText },
@@ -28,7 +29,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView }) => {
           <h1 className="font-bold text-white leading-none">BPD Cloud</h1>
           <div className="flex items-center gap-1 mt-1">
             <Zap size={10} className="text-indigo-400 fill-indigo-400" />
-            <span className="text-[10px] text-white font-black tracking-widest uppercase block bg-indigo-600/50 px-1.5 py-0.5 rounded">v4.2.0-GRAPH</span>
+            <span className="text-[10px] text-white font-black tracking-widest uppercase block bg-indigo-600/50 px-1.5 py-0.5 rounded">v4.3.0-MISSION</span>
           </div>
         </div>
       </div>
