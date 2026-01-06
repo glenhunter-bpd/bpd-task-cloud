@@ -1,0 +1,8 @@
+{
+  "name": "BPD Global Task Sync",
+  "description": "A real-time synchronizing project management application for the Broadband Policy and Development team, featuring cloud-synced task tracking, program management, and AI-driven project insights.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
