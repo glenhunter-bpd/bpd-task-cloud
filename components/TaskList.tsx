@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Task, AppState, TaskStatus } from '../types';
 import { db } from '../services/database';
 import { STATUS_COLORS, getProgramColor } from '../constants';
-import { Search, Filter, Plus, Trash2, Calendar, User as UserIcon, Pencil, Loader2, Link2, AlertCircle } from 'lucide-react';
+import { Search, Filter, Plus, Trash2, Calendar, Pencil, Loader2, Link2, AlertCircle, ChevronRight } from 'lucide-react';
 import TaskModal from './TaskModal';
 import ConfirmationModal from './ConfirmationModal';
 
@@ -13,222 +13,131 @@ interface TaskListProps {
 
 const TaskList: React.FC<TaskListProps> = ({ state }) => {
   const [search, setSearch] = useState('');
-  const [filterProgram, setFilterProgram] = useState('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState<string | null>(null);
 
-  const filteredTasks = state.tasks.filter(task => {
-    const matchesSearch = task.name.toLowerCase().includes(search.toLowerCase()) || 
-                          task.assignedTo.toLowerCase().includes(search.toLowerCase());
-    const matchesProgram = filterProgram === 'All' || task.program === filterProgram;
-    return matchesSearch && matchesProgram;
-  });
-
-  const getBlockers = (task: Task) => {
-    if (!task.dependentTasks || task.dependentTasks.length === 0) return [];
-    return task.dependentTasks.map(id => state.tasks.find(t => t.id === id)).filter(t => t && t.status !== TaskStatus.COMPLETED);
-  };
-
-  const handleStatusChange = async (taskId: string, status: TaskStatus) => {
-    const task = state.tasks.find(t => t.id === taskId);
-    if (status === TaskStatus.COMPLETED && task) {
-       const blockers = getBlockers(task);
-       if (blockers.length > 0) {
-          alert(`CRITICAL BLOCKER: Cannot complete task until dependencies are closed: ${blockers.map(b => b?.name).join(', ')}`);
-          return;
-       }
-    }
-    
-    setIsProcessing(taskId);
-    const progress = status === TaskStatus.COMPLETED ? 100 : status === TaskStatus.OPEN ? 0 : 50;
-    await db.updateTask(taskId, { status, progress });
-    setIsProcessing(null);
-  };
-
-  const handleEdit = (task: Task) => {
-    setEditingTask(task);
-    setIsModalOpen(true);
-  };
-
-  const handleDeleteClick = (e: React.MouseEvent, taskId: string) => {
-    e.stopPropagation();
-    setTaskToDelete(taskId);
-  };
-
-  const confirmDelete = async () => {
-    if (taskToDelete) {
-      await db.deleteTask(taskToDelete);
-      setTaskToDelete(null);
-    }
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingTask(null);
-  };
+  const filteredTasks = state.tasks.filter(task => 
+    task.name.toLowerCase().includes(search.toLowerCase()) || 
+    task.assignedTo.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-      {isModalOpen && <TaskModal state={state} onClose={handleCloseModal} taskToEdit={editingTask} />}
-      
+    <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 pb-10">
+      {isModalOpen && <TaskModal state={state} onClose={() => setIsModalOpen(false)} taskToEdit={editingTask} />}
       <ConfirmationModal 
-        isOpen={!!taskToDelete}
-        title="Revoke Global Operation?"
-        message="This will permanently delete the task from the BPD Cloud Database for all users. This action is tracked in the system logs."
-        onConfirm={confirmDelete}
-        onCancel={() => setTaskToDelete(null)}
+        isOpen={!!taskToDelete} 
+        title="Revoke Registry Entry?" 
+        message="This will permanently delete this task from the global enterprise cloud. This action cannot be undone."
+        onConfirm={async () => { if(taskToDelete) { await db.deleteTask(taskToDelete); setTaskToDelete(null); } }} 
+        onCancel={() => setTaskToDelete(null)} 
       />
 
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Cloud Task Registry</h2>
-          <p className="text-slate-500 text-sm">Nexus v4: Dependency-aware task synchronization.</p>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Operation Registry</h2>
+          <div className="flex items-center gap-2 text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">
+            <span className="text-emerald-500">Live Nexus Protocol</span>
+            <span>•</span>
+            <span>{filteredTasks.length} Entries Synchronized</span>
+          </div>
         </div>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
-        >
-          <Plus size={20} />
-          Create Task
-        </button>
-      </header>
-
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row gap-4 bg-slate-50/50">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+        
+        <div className="flex items-center gap-3">
+          <div className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-emerald-500 transition-colors" size={16} />
             <input 
               type="text" 
-              placeholder="Filter BPD cloud records..."
-              className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 text-sm font-medium"
+              placeholder="Search registry..."
+              className="pl-11 pr-6 py-3.5 bg-white border border-slate-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/30 transition-all w-72 shadow-sm"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="flex items-center gap-2">
-            <select 
-              className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold focus:outline-none cursor-pointer text-slate-600 outline-none"
-              value={filterProgram}
-              onChange={(e) => setFilterProgram(e.target.value)}
-            >
-              <option value="All">All Active Grants</option>
-              {state.programs.map(p => (
-                <option key={p.id} value={p.name}>{p.name}</option>
-              ))}
-            </select>
-          </div>
+          <button 
+            onClick={() => { setEditingTask(null); setIsModalOpen(true); }}
+            className="bg-slate-950 text-white px-6 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-slate-800 transition-all shadow-xl shadow-slate-950/10 active:scale-95"
+          >
+            <Plus size={18} strokeWidth={3} />
+            Register Task
+          </button>
         </div>
+      </div>
 
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left">
             <thead>
-              <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
-                <th className="px-6 py-5">Operation Identity</th>
-                <th className="px-6 py-5">Status</th>
-                <th className="px-6 py-5">Nexus</th>
-                <th className="px-6 py-5">Owner</th>
-                <th className="px-6 py-5">Timeline</th>
-                <th className="px-6 py-5 text-right">Registry Actions</th>
+              <tr className="bg-slate-50/50 border-b border-slate-100">
+                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry Identity</th>
+                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Phase Status</th>
+                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nexus Link</th>
+                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Personnel</th>
+                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Timeline</th>
+                <th className="px-8 py-6 text-right"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredTasks.map((task) => {
-                const blockers = getBlockers(task);
-                const isBlocked = blockers.length > 0;
-
-                return (
-                  <tr key={task.id} className={`hover:bg-slate-50/30 transition-colors group ${isBlocked ? 'bg-amber-50/20' : ''}`}>
-                    <td className="px-6 py-4">
-                      <div className="flex items-start gap-2">
-                        {isBlocked && <AlertCircle size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />}
-                        <div>
-                          <div className="font-bold text-slate-800 text-sm">{task.name}</div>
-                          <div className="text-[10px] text-slate-400 truncate max-w-xs mt-0.5 font-medium">{task.description || 'Global Cloud Task.'}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {isProcessing === task.id ? (
-                        <div className="flex items-center gap-2 text-indigo-600 text-[9px] font-black">
-                          <Loader2 size={12} className="animate-spin" />
-                          SYNCING...
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-1.5">
-                          <select
-                            value={task.status}
-                            onChange={(e) => handleStatusChange(task.id, e.target.value as TaskStatus)}
-                            className={`text-[9px] font-black uppercase px-2 py-1.5 rounded-lg outline-none appearance-none cursor-pointer border-transparent hover:border-slate-300 transition-all ${STATUS_COLORS[task.status]}`}
-                          >
-                            {Object.values(TaskStatus).map(s => (
-                              <option key={s} value={s}>{s.replace('_', ' ')}</option>
-                            ))}
-                          </select>
-                          {isBlocked && (
-                            <span className="text-[8px] font-black text-amber-600 tracking-widest uppercase">Blocked by {blockers.length} item(s)</span>
-                          )}
+            <tbody className="divide-y divide-slate-50">
+              {filteredTasks.map((task) => (
+                <tr key={task.id} className="group hover:bg-slate-50/50 transition-all duration-200">
+                  <td className="px-8 py-5">
+                    <div className="flex flex-col">
+                      <span className="font-bold text-slate-900 text-sm group-hover:text-emerald-600 transition-colors">{task.name}</span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight truncate max-w-[200px] mt-1">{task.description || 'System Entry'}</span>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest inline-block ${STATUS_COLORS[task.status]}`}>
+                      {task.status.replace('_', ' ')}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase border tracking-widest ${getProgramColor(task.program)}`}>
+                        {task.program}
+                      </span>
+                      {task.dependentTasks.length > 0 && (
+                        <div className="flex items-center gap-1 text-[8px] font-black text-slate-300">
+                          <Link2 size={10} />
+                          {task.dependentTasks.length}
                         </div>
                       )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1.5">
-                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase border tracking-tight w-fit ${getProgramColor(task.program)}`}>
-                          {task.program}
-                        </span>
-                        {task.dependentTasks.length > 0 && (
-                          <div className="flex items-center gap-1 text-[9px] font-bold text-indigo-500">
-                            <Link2 size={10} />
-                            {task.dependentTasks.length} linked
-                          </div>
-                        )}
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center text-[10px] font-black shadow-lg shadow-slate-900/10">
+                        {task.assignedTo.substring(0, 2).toUpperCase()}
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 bg-indigo-600 text-white rounded-lg flex items-center justify-center text-[9px] font-black shadow-sm">
-                          {task.assignedTo.substring(0, 2).toUpperCase()}
-                        </div>
-                        <span className="text-xs text-slate-600 font-bold tracking-tight">{task.assignedTo}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1.5 text-slate-500 text-[10px] font-bold">
-                        <Calendar size={12} className="text-slate-300" />
-                        {new Date(task.plannedEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => handleEdit(task)}
-                          className="inline-flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button 
-                          onClick={(e) => handleDeleteClick(e, task.id)}
-                          className="inline-flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                      <span className="text-xs font-bold text-slate-600">{task.assignedTo}</span>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-2 text-slate-400 text-[10px] font-bold">
+                      <Calendar size={12} className="text-slate-200" />
+                      {new Date(task.plannedEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}
+                    </div>
+                  </td>
+                  <td className="px-8 py-5 text-right">
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity translate-x-4 group-hover:translate-x-0">
+                      <button 
+                        onClick={() => { setEditingTask(task); setIsModalOpen(true); }}
+                        className="p-2 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button 
+                        onClick={() => setTaskToDelete(task.id)}
+                        className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
-          {filteredTasks.length === 0 && (
-            <div className="py-24 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-50 rounded-full mb-4">
-                <Search size={24} className="text-slate-300" />
-              </div>
-              <h3 className="font-bold text-slate-800 mb-1">No matches found in Cloud</h3>
-              <p className="text-sm text-slate-400">Try adjusting your filters for the v4 registry stream.</p>
-            </div>
-          )}
         </div>
       </div>
     </div>

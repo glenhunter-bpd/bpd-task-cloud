@@ -75,19 +75,19 @@ export const INITIAL_DATA = {
 };
 
 export const PROGRAM_COLORS: Record<string, string> = {
-  BEAD: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-  CPF: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  USDA: 'bg-amber-100 text-amber-700 border-amber-200',
-  BPD: 'bg-rose-100 text-rose-700 border-rose-200',
+  BEAD: 'bg-indigo-50 text-indigo-700 border-indigo-100',
+  CPF: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+  USDA: 'bg-amber-50 text-amber-700 border-amber-100',
+  BPD: 'bg-rose-50 text-rose-700 border-rose-100',
 };
 
 export const getProgramColor = (programName: string): string => {
-  return PROGRAM_COLORS[programName] || 'bg-slate-100 text-slate-700 border-slate-200';
+  return PROGRAM_COLORS[programName] || 'bg-slate-50 text-slate-700 border-slate-100';
 };
 
 export const STATUS_COLORS: Record<TaskStatus, string> = {
-  [TaskStatus.OPEN]: 'bg-slate-100 text-slate-700',
-  [TaskStatus.IN_PROGRESS]: 'bg-blue-100 text-blue-700',
-  [TaskStatus.COMPLETED]: 'bg-green-100 text-green-700',
-  [TaskStatus.ON_HOLD]: 'bg-orange-100 text-orange-700',
+  [TaskStatus.OPEN]: 'bg-slate-900 text-white',
+  [TaskStatus.IN_PROGRESS]: 'bg-indigo-500 text-white shadow-lg shadow-indigo-100',
+  [TaskStatus.COMPLETED]: 'bg-emerald-500 text-white shadow-lg shadow-emerald-100',
+  [TaskStatus.ON_HOLD]: 'bg-amber-400 text-slate-950 shadow-lg shadow-amber-100',
 };
