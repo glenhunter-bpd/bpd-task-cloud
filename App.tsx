@@ -22,11 +22,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const initApp = async () => {
-      await db.initialize(INITIAL_DATA);
-      setIsCloudConnected(true);
+      // The db service returns true if it successfully connected to Supabase
+      const success = await db.initialize(INITIAL_DATA);
+      setIsCloudConnected(success);
       
       const unsubscribe = db.subscribe((newState) => {
         setState(newState);
+        // Refresh connection status whenever the state changes
+        setIsCloudConnected(db.getStatus());
       });
 
       return unsubscribe;
@@ -95,7 +98,7 @@ const App: React.FC = () => {
             {/* Cloud Status Indicator */}
             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-black transition-all ${isCloudConnected ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
               {isCloudConnected ? <Wifi size={12} /> : <WifiOff size={12} />}
-              {isCloudConnected ? 'DATABASE LIVE' : 'SYNC INTERRUPTED'}
+              {isCloudConnected ? 'DATABASE LIVE' : 'OFFLINE MODE'}
             </div>
 
             <div className="relative" ref={notificationRef}>
@@ -115,9 +118,7 @@ const App: React.FC = () => {
                   </div>
                   <div className="max-h-[300px] overflow-y-auto">
                     {[
-                      { user: 'Dolorez', action: 'completed', target: 'Travel for PTC', time: '2m ago' },
-                      { user: 'BPD Cloud', action: 'provisioned', target: 'V3 Registry', time: '15m ago' },
-                      { user: 'Melia', action: 'updated', target: 'USDA Allotment', time: '1h ago' },
+                      { user: 'System', action: 'connected', target: isCloudConnected ? 'to Supabase' : 'locally only', time: 'Just now' },
                     ].map((n, i) => (
                       <div key={i} className="p-4 hover:bg-slate-50 transition-colors flex gap-3 border-b border-slate-50 last:border-0">
                         <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 flex-shrink-0">
@@ -131,9 +132,6 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     ))}
-                  </div>
-                  <div className="p-3 bg-slate-50 text-center">
-                    <button className="text-xs font-bold text-indigo-600 hover:text-indigo-700">View Server Logs</button>
                   </div>
                 </div>
               )}
@@ -149,7 +147,7 @@ const App: React.FC = () => {
                 </div>
               </div>
               <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-indigo-200">
-                {state.currentUser?.name.substring(0, 2).toUpperCase()}
+                {state.currentUser?.name?.substring(0, 2).toUpperCase() || '??'}
               </div>
             </div>
           </div>

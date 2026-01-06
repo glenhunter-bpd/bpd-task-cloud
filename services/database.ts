@@ -1,70 +1,119 @@
 
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Task, Program, User, AppState, TaskStatus } from '../types';
 
 /**
- * BPD CLOUD DATABASE SERVICE V3 (REALTIME PRO)
+ * BPD CLOUD DATABASE SERVICE V3.2-DIAGNOSTIC
  * 
- * To connect to a real Supabase or Firebase instance:
- * 1. Replace the inner logic of these methods with supabase.from('tasks').select('*') etc.
- * 2. Use the provided environment variables for credentials.
+ * Provides robust connection handling and detailed logging for deployment debugging.
  */
 
-const DB_KEY = 'bpd_cloud_db_v3';
-const SYNC_CHANNEL = 'bpd_v3_realtime_stream';
+const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
+const SUPABASE_KEY = (process.env.SUPABASE_ANON_KEY || '').trim();
 
 class DatabaseService {
-  private channel: BroadcastChannel;
+  private client: SupabaseClient | null = null;
   private subscribers: Array<(state: AppState) => void> = [];
   private isConnected: boolean = false;
+  private localState: AppState = { tasks: [], programs: [], users: [], currentUser: null };
 
   constructor() {
-    this.channel = new BroadcastChannel(SYNC_CHANNEL);
-    this.channel.onmessage = (event) => {
-      if (event.data.type === 'CLOUD_SYNC') {
-        console.debug('V3 Realtime Update Received');
-        this.notifySubscribers(this.getState());
-      }
-    };
+    if (SUPABASE_URL && SUPABASE_KEY) {
+      console.log("Initializing Supabase Client...");
+      this.client = createClient(SUPABASE_URL, SUPABASE_KEY);
+      this.setupRealtimeListeners();
+    } else {
+      console.warn("SUPABASE_URL or KEY missing from Environment Variables. Running in Local Mock Mode.");
+    }
   }
 
-  // Simulated network latency
-  private async networkDelay() {
-    return new Promise(resolve => setTimeout(resolve, 300));
+  private setupRealtimeListeners() {
+    if (!this.client) return;
+
+    this.client
+      .channel('bpd-realtime-global')
+      .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+        console.log('Real-time sync triggered by cloud change in:', payload.table);
+        this.syncWithCloud();
+      })
+      .subscribe((status) => {
+        console.log('Supabase Realtime Status:', status);
+      });
   }
 
-  private getState(): AppState {
-    const data = localStorage.getItem(DB_KEY);
-    return data ? JSON.parse(data) : { tasks: [], programs: [], users: [], currentUser: null };
-  }
+  private async syncWithCloud() {
+    if (!this.client) return;
+    
+    try {
+      const [tasksRes, programsRes, usersRes] = await Promise.all([
+        this.client.from('tasks').select('*').order('updated_at', { ascending: false }),
+        this.client.from('programs').select('*'),
+        this.client.from('users').select('*')
+      ]);
 
-  private async saveState(state: AppState) {
-    await this.networkDelay(); // Simulate Cloud write
-    localStorage.setItem(DB_KEY, JSON.stringify(state));
-    this.channel.postMessage({ type: 'CLOUD_SYNC', timestamp: Date.now() });
-    this.notifySubscribers(state);
+      if (tasksRes.error) throw tasksRes.error;
+      if (programsRes.error) throw programsRes.error;
+      if (usersRes.error) throw usersRes.error;
+
+      const mappedTasks: Task[] = (tasksRes.data || []).map(t => ({
+        id: t.id,
+        name: t.name,
+        description: t.description,
+        program: t.program,
+        assignedTo: t.assigned_to,
+        assignedToId: t.assigned_to_id,
+        priority: t.priority,
+        status: t.status as TaskStatus,
+        progress: t.progress,
+        plannedEndDate: t.planned_end_date,
+        updatedAt: t.updated_at,
+        updatedBy: t.updated_by,
+        startDate: t.start_date || new Date().toISOString().split('T')[0],
+        actualEndDate: t.actual_end_date || '',
+        notes: [],
+        dependentTasks: []
+      }));
+
+      this.localState = {
+        ...this.localState,
+        tasks: mappedTasks,
+        programs: programsRes.data as Program[],
+        users: usersRes.data as User[],
+      };
+
+      this.notifySubscribers(this.localState);
+      this.isConnected = true;
+    } catch (err) {
+      console.error('Cloud Sync Error (Check if tables exist in Supabase!):', err);
+      this.isConnected = false;
+    }
   }
 
   public async initialize(initialData: Partial<AppState>): Promise<boolean> {
-    this.isConnected = false;
-    await this.networkDelay();
-    
-    if (!localStorage.getItem(DB_KEY)) {
-      const state: AppState = {
+    if (!this.client) {
+      this.localState = {
         tasks: initialData.tasks || [],
         programs: initialData.programs || [],
         users: initialData.users || [],
-        currentUser: initialData.users ? initialData.users[0] : null,
+        currentUser: initialData.users ? initialData.users[0] : null
       };
-      await this.saveState(state);
+      this.notifySubscribers(this.localState);
+      return false;
     }
+
+    await this.syncWithCloud();
     
-    this.isConnected = true;
-    return true;
+    if (this.localState.users.length > 0 && !this.localState.currentUser) {
+      this.localState.currentUser = this.localState.users[0];
+      this.notifySubscribers(this.localState);
+    }
+
+    return this.isConnected;
   }
 
   public subscribe(callback: (state: AppState) => void) {
     this.subscribers.push(callback);
-    callback(this.getState());
+    callback(this.localState);
     return () => {
       this.subscribers = this.subscribers.filter(s => s !== callback);
     };
@@ -74,92 +123,78 @@ class DatabaseService {
     this.subscribers.forEach(s => s(state));
   }
 
-  // --- Task Operations ---
-  public async updateTask(taskId: string, updates: Partial<Task>) {
-    const state = this.getState();
-    const tasks = state.tasks.map(t => 
-      t.id === taskId ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t
-    );
-    await this.saveState({ ...state, tasks });
+  public async addTask(task: Omit<Task, 'id' | 'updatedAt' | 'updatedBy'>) {
+    if (!this.client) return;
+    const payload = {
+      id: `t-${Date.now()}`,
+      name: task.name,
+      description: task.description,
+      program: task.program,
+      assigned_to: task.assignedTo,
+      assigned_to_id: task.assignedToId,
+      priority: task.priority,
+      status: task.status,
+      progress: task.progress,
+      planned_end_date: task.plannedEndDate,
+      updated_at: new Date().toISOString(),
+      updated_by: this.localState.currentUser?.name || 'System'
+    };
+    await this.client.from('tasks').insert([payload]);
+    // Note: We don't need to manually sync, the Realtime listener handles it!
   }
 
-  public async addTask(task: Omit<Task, 'id' | 'updatedAt' | 'updatedBy'>) {
-    const state = this.getState();
-    const newTask: Task = {
-      ...task,
-      id: `t-${Date.now()}`,
-      updatedAt: new Date().toISOString(),
-      updatedBy: state.currentUser?.name || 'system'
-    };
-    await this.saveState({ ...state, tasks: [newTask, ...state.tasks] });
+  public async updateTask(taskId: string, updates: Partial<Task>) {
+    if (!this.client) return;
+    const dbUpdates: any = { ...updates };
+    if (updates.assignedTo) dbUpdates.assigned_to = updates.assignedTo;
+    if (updates.assignedToId) dbUpdates.assigned_to_id = updates.assignedToId;
+    if (updates.plannedEndDate) dbUpdates.planned_end_date = updates.plannedEndDate;
+    dbUpdates.updated_at = new Date().toISOString();
+    dbUpdates.updated_by = this.localState.currentUser?.name || 'System';
+    await this.client.from('tasks').update(dbUpdates).eq('id', taskId);
   }
 
   public async deleteTask(taskId: string) {
-    const state = this.getState();
-    const tasks = state.tasks.filter(t => t.id !== taskId);
-    await this.saveState({ ...state, tasks });
+    if (!this.client) return;
+    await this.client.from('tasks').delete().eq('id', taskId);
   }
 
-  // --- Program/Grant Operations ---
   public async addProgram(program: Omit<Program, 'id' | 'createdAt' | 'createdBy'>) {
-    const state = this.getState();
-    const newProgram: Program = {
-      ...program,
-      id: `p-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      createdBy: state.currentUser?.id || 'system'
-    };
-    await this.saveState({ ...state, programs: [...state.programs, newProgram] });
+    if (!this.client) return;
+    const payload = { ...program, id: `p-${Date.now()}` };
+    await this.client.from('programs').insert([payload]);
   }
 
   public async updateProgram(programId: string, updates: Partial<Program>) {
-    const state = this.getState();
-    const programs = state.programs.map(p => 
-      p.id === programId ? { ...p, ...updates } : p
-    );
-    await this.saveState({ ...state, programs });
+    if (!this.client) return;
+    await this.client.from('programs').update(updates).eq('id', programId);
   }
 
   public async deleteProgram(programId: string) {
-    const state = this.getState();
-    const programs = state.programs.filter(p => p.id !== programId);
-    await this.saveState({ ...state, programs });
+    if (!this.client) return;
+    await this.client.from('programs').delete().eq('id', programId);
   }
 
-  // --- User Operations ---
   public async addUser(user: Omit<User, 'id'>) {
-    const state = this.getState();
-    const newUser: User = {
-      ...user,
-      id: `u-${Date.now()}`,
-    };
-    await this.saveState({ ...state, users: [...state.users, newUser] });
+    if (!this.client) return;
+    const payload = { ...user, id: `u-${Date.now()}` };
+    await this.client.from('users').insert([payload]);
   }
 
   public async updateUser(userId: string, updates: Partial<User>) {
-    const state = this.getState();
-    const users = state.users.map(u => 
-      u.id === userId ? { ...u, ...updates } : u
-    );
-    
-    let currentUser = state.currentUser;
-    if (currentUser && currentUser.id === userId) {
-      currentUser = { ...currentUser, ...updates };
-    }
-
-    await this.saveState({ ...state, users, currentUser });
+    if (!this.client) return;
+    await this.client.from('users').update(updates).eq('id', userId);
   }
 
   public async deleteUser(userId: string) {
-    const state = this.getState();
-    const users = state.users.filter(u => u.id !== userId);
-    await this.saveState({ ...state, users });
+    if (!this.client) return;
+    await this.client.from('users').delete().eq('id', userId);
   }
 
   public async setCurrentUser(userId: string) {
-    const state = this.getState();
-    const user = state.users.find(u => u.id === userId) || null;
-    await this.saveState({ ...state, currentUser: user });
+    const user = this.localState.users.find(u => u.id === userId) || null;
+    this.localState.currentUser = user;
+    this.notifySubscribers(this.localState);
   }
 
   public getStatus(): boolean {

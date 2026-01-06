@@ -2,17 +2,28 @@
 import { GoogleGenAI } from "@google/genai";
 import { Task } from "../types";
 
+// Always initialized with the Vercel/Netlify provided API_KEY
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export async function analyzeProjectHealth(tasks: Task[]) {
+  if (!process.env.API_KEY) {
+    return "AI Features are disabled. Please configure your API_KEY in the environment variables.";
+  }
+
   const prompt = `
-    Analyze the following BPD tasks and provide a concise status report.
-    Highlight:
-    1. Critical blockers (tasks with 0% progress past start date).
-    2. Overdue tasks.
-    3. Suggested priorities for the next 2 weeks.
+    Perform a professional operational audit of the following BPD (Broadband Policy & Development) tasks:
     
-    Task Data: ${JSON.stringify(tasks.map(t => ({ name: t.name, status: t.status, progress: t.progress, end: t.plannedEndDate })))}
+    1. Identify 'Critical Path' blockers (Tasks with 0% progress).
+    2. Flags tasks that are nearing their planned end dates but are not yet 'COMPLETED'.
+    3. Suggest a 3-step action plan for the team lead based on the distribution of workload.
+    
+    Task Registry: ${JSON.stringify(tasks.map(t => ({ 
+      name: t.name, 
+      status: t.status, 
+      progress: t.progress, 
+      end: t.plannedEndDate,
+      assignedTo: t.assignedTo
+    })))}
   `;
 
   try {
@@ -20,12 +31,12 @@ export async function analyzeProjectHealth(tasks: Task[]) {
       model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
-        systemInstruction: "You are an expert project management consultant for the Broadband Policy and Development team. Keep your response professional, data-driven, and actionable."
+        systemInstruction: "You are the Chief Operational Officer for the BPD team. Your tone is authoritative, efficient, and data-centric. Format the output with clear bullet points."
       }
     });
     return response.text;
   } catch (error) {
-    console.error("AI Analysis failed:", error);
-    return "Failed to generate AI insights. Please check your connection.";
+    console.error("Gemini AI error:", error);
+    return "The project intelligence stream is temporarily unavailable. Check your API configuration.";
   }
 }

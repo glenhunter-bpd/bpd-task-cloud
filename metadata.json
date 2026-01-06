@@ -1,8 +1,10 @@
+
 {
-  "name": "BPD Global Task Sync",
-  "description": "A real-time synchronizing project management application for the Broadband Policy and Development team, featuring cloud-synced task tracking, program management, and AI-driven project insights.",
+  "name": "BPD Cloud Registry Pro",
+  "description": "A mission-critical project management and task synchronization cloud platform for the Broadband Policy and Development team. Built with Supabase Realtime and Gemini AI.",
   "requestFramePermissions": [
     "camera",
     "microphone"
-  ]
+  ],
+  "version": "3.1.0-LIVE"
 }
