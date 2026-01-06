@@ -1,37 +1,21 @@
 
-# BPD Cloud Registry Architecture v4.6.0-HEAT
+# BPD Cloud Registry Architecture v5.0 (ENTERPRISE)
 
-## System Overview
-The Broadband Policy & Development (BPD) Cloud Registry is a mission-critical, local-first operational database. Version 4.6.0-HEAT introduces the **Thermal Risk Engine**, which monitors grant-level health through multi-variable threshold analysis.
+## Lifecycle Status: **ACTIVE DEVELOPMENT**
+This document serves as the living architectural blueprint for the Version 5.x Enterprise BPD Cloud Registry.
 
-## Core Tech Stack
-- **Frontend Core**: React 19 (ES6 Modules)
-- **Styling**: Tailwind CSS + Lucide Icons
-- **Data Layer**: Supabase (PostgreSQL + Realtime WebSocket)
-- **Intelligence**: Google Gemini 3 Flash-Preview (Model: `gemini-3-flash-preview`)
-- **Version Control**: Semantic versioning (Current: v4.6.0-HEAT)
+## Core Pillars (V5 Evolution)
+1. **Advanced Resource Planning (ARP)**: Transition from simple heat-mapping to predictive workload distribution and departmental capacity analysis.
+2. **Delta-Sync Protocol**: Optimized data reconciliation for enterprise-scale registries, fetching only changed segments to minimize bandwidth.
+3. **Strategic AI Sentinel**: Upgraded from simple anomaly detection to strategic advisory, identifying multi-grant synergies.
 
-## Key Architectural Pillars
+## Global Schema Definition
+Version 5 maintains relational integrity while adding support for advanced resource tracking:
+- `tasks`: Primary operational unit with expanded metadata for resource weighting.
+- `programs`: Funding taxonomy with cross-grant linkage capability.
+- `users`: Identity registry with capacity and workload tracking.
 
-### 1. Thermal Risk Engine (V4.6 HEAT Build)
-The Heatmap monitors pressure points by calculating a weighted risk score for every grant program in the registry.
-- **Algorithm**: `Score = Sum(TaskWeight * TimeMultiplier)`.
-- **Weights**: Critical (20), High (10), Medium (5), Low (2).
-- **Time Multiplier**: Overdue (3x), <48h (2.5x), <7d (1.5x), Else (1x).
-- **Visualization**: Inferno (Red Pulse), High (Amber Glow), Stable (Emerald).
-
-### 2. Database Integrity & Upsert Logic
-To support real-time synchronization and "Insert or Update" (Upsert) operations, the database requires specific unique constraints:
-- **Programs Table**: Unique constraint on `name` field.
-- **Users Table**: Unique constraint on `email` field.
-- **Enforcement**: This prevents duplicate registry entries during bulk cloud reconciliations.
-
-### 3. AI Sentinel (Background Observer)
-Autonomous logic loop identifying operational anomalies every 300 seconds.
-- **Output**: Broadcasts risk anomalies to the global pulse feed using Gemini JSON schema extraction.
-
-### 4. Dependency Nexus (Graph Engine)
-Recursive dependency tree scanning enforces strict completion order and visualizes the "Critical Path" in the Timeline view.
-
-### 5. Mission Personalization
-Staff profiles drive the "My Mission" view, filtering tasks into "Direct Blockers" (items you own blocking others) and "Newly Actionable" (items where dependencies are met).
+## Enterprise Integrity
+V5 requires strict enforcement of unique keys to prevent data collisions in high-concurrency environments:
+- `programs_name_key`: UNIQUE(name)
+- `users_email_key`: UNIQUE(email)

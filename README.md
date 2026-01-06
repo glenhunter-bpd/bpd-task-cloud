@@ -1,20 +1,27 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
 
-# Run and deploy your AI Studio app
+# BPD Cloud Registry Enterprise (Version 5.x)
 
-This contains everything you need to run your app locally.
+## Project Status: **ACTIVE DEVELOPMENT (V5)**
+Welcome to the **Version 5 Enterprise** branch of the BPD Cloud Registry. This version builds upon the stable V4 HEAT core, shifting focus toward high-level strategic planning and resource optimization.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1cFdbKTeEShAKMSBIgP1zrPN59efc_rRf
+### V5 Enterprise Objectives
+- **Advanced Resource Planning (ARP)**: Predictive workload balancing across departments.
+- **Cross-Pollination Analysis**: AI-driven identification of shared goals between disparate grant programs.
+- **Delta-Sync Protocol**: Optimized networking for massive registry scales.
+- **Real-time Audio/Video Sentinel**: Integrated multimodal auditing using the Gemini Live API.
 
-## Run Locally
+### Core Architecture
+- **Framework**: React 19 + Tailwind CSS
+- **Data Layer**: Supabase Nexus v5 (PostgreSQL + Realtime)
+- **Intelligence Engine**: Google Gemini 3 Pro-Preview (`gemini-3-pro-preview` recommended for V5 logic)
 
-**Prerequisites:**  Node.js
+### Quick Start (Provisioning)
+For the V5 engine to function, ensure your Supabase instance has the required unique constraints:
+```sql
+-- V5 Schema Requirements
+ALTER TABLE programs ADD CONSTRAINT programs_name_key UNIQUE (name);
+ALTER TABLE users ADD CONSTRAINT users_email_key UNIQUE (email);
+```
 
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+---
+*© 2025 Broadband Policy and Development. Version 5 Enterprise Lifecycle.*

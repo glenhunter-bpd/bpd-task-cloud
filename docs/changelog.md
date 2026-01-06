@@ -1,28 +1,20 @@
 
-# BPD Cloud Changelog
+# BPD Cloud Changelog (Enterprise Lifecycle)
 
-## [v4.6.0-HEAT] - 2025-03-17
+## [v5.0.0-ENTERPRISE] - 2025-03-18
+### Status
+- **Initialization of Version 5**: Forked from stable V4 HEAT codebase.
+- **Enterprise Roadmap**: Primary focus shifted to Advanced Resource Planning (ARP).
+
 ### Added
-- **Thermal Risk Engine**: Dynamic health scoring for all grant programs based on priority and deadline proximity.
-- **Grant Health Heatmap**: New visual pulse system for high-risk grant portfolios on the Dashboard.
-- **Leadership HUD**: Strategic summary of program heat scores for resource reallocation.
-- **Proximity Multipliers**: Time-sensitive risk weighting for upcoming deadlines (<48h).
-- **Database Service v4.6.1**: Improved environment variable detection and local storage fallback logic.
+- **V5 Branding**: Updated UI elements with Enterprise emerald branding and v5.0 badges.
+- **Architecture Roadmap**: Updated documentation to reflect V5 strategic objectives.
+- **Project Identity**: Re-tagged metadata and headers to reflect Enterprise status.
 
-### Fixed
-- **SQL Constraint Documentation**: Added troubleshooting for `42P10` unique constraint errors in Supabase setup.
-- **Syntax Stability**: Refined template literals in `Dashboard.tsx` and `GrantsView.tsx` to prevent unexpected string errors.
+---
 
-### Improved
-- **Grants UI**: Redesigned program cards with risk-aware themes and thermal progress bars.
-- **Real-time Performance**: Optimized state-diffing when processing remote cloud updates.
+# V4 Lifecycle Archive
 
-## [v4.5.0-SENTINEL] - 2025-03-16
-### Added
-- **Autonomous AI Sentinel**: Proactive background agent for anomaly detection.
-- **Sentinel Advisory UI**: AI risk component in "My Mission" view.
-- **Quick-Switcher**: Identity switching in global header.
-
-## [v4.3.0-MISSION] - 2025-03-15
-### Added
-- **My Mission Command Center**: Personalized operational summary focusing on blockers.
+## [v4.6.0-HEAT] - 2025-03-17 (FINAL V4)
+- **End of V4 Development**: Core features verified stable.
+- **Heat Mapping Finalization**: Fine-tuned proximity multipliers for 48h and 7d thresholds.

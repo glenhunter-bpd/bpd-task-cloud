@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import { AppState } from '../types';
 import { db } from '../services/database';
-import { User, Shield, Database, Terminal, Link, CheckCircle2, AlertTriangle, Key, Zap } from 'lucide-react';
+// Fixed missing AlertTriangle import
+import { User, Shield, Database, Terminal, Link, CheckCircle2, AlertCircle, AlertTriangle, Key, Zap } from 'lucide-react';
 
 interface SettingsViewProps {
   state: AppState;
@@ -31,17 +32,17 @@ const SettingsView: React.FC<SettingsViewProps> = ({ state }) => {
       <header className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">System Infrastructure</h2>
-          <p className="text-slate-500 text-sm">Nexus v4: Critical Operational Parameters</p>
+          <p className="text-slate-500 text-sm">Nexus v5: Enterprise Operational Parameters</p>
         </div>
-        <div className="flex items-center gap-2 bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl font-black text-[10px] tracking-widest uppercase">
+        <div className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-xl font-black text-[10px] tracking-widest uppercase">
           <Zap size={14} />
-          Version 4.0.0-PRO
+          Version 5.0.0-ENTERPRISE
         </div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
-        {/* Cloud Link Management - DEBUGGER SECTION */}
+        {/* Cloud Link Management */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm md:col-span-2">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
@@ -164,11 +165,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ state }) => {
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Release Build</span>
-                <span className="font-mono font-bold text-slate-800">v4.0.0-PRO</span>
+                <span className="font-mono font-bold text-slate-800">v5.0.0-ENTERPRISE</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Environment</span>
-                <span className="font-bold text-indigo-600 uppercase text-[10px] tracking-widest bg-indigo-50 px-2 py-0.5 rounded">Production</span>
+                <span className="font-bold text-emerald-600 uppercase text-[10px] tracking-widest bg-emerald-50 px-2 py-0.5 rounded">Development (V5)</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Sync Status</span>
@@ -187,11 +188,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ state }) => {
                <h3 className="font-bold">Security Compliance</h3>
              </div>
              <p className="text-sm text-slate-400 leading-relaxed mb-4">
-               All BPD cloud operations are encrypted and synchronized using the V3 Nexus Protocol. Modifications are cryptographically linked to your current identity.
+               All BPD cloud operations are encrypted and synchronized using the V5 Enterprise Protocol.
              </p>
              <div className="flex items-center gap-2 text-[10px] font-mono text-slate-500 bg-black/20 p-2 rounded">
                <Terminal size={12} />
-               <span>node-id: {Math.random().toString(36).substr(2, 9).toUpperCase()}</span>
+               <span>v5-node-id: {Math.random().toString(36).substr(2, 9).toUpperCase()}</span>
              </div>
           </div>
         </div>

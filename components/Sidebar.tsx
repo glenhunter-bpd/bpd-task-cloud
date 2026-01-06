@@ -28,8 +28,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView }) => {
         <div>
           <h1 className="font-bold text-white leading-none">BPD Cloud</h1>
           <div className="flex items-center gap-1 mt-1">
-            <Zap size={10} className="text-indigo-400 fill-indigo-400" />
-            <span className="text-[10px] text-white font-black tracking-widest uppercase block bg-indigo-600/50 px-1.5 py-0.5 rounded">v4.6.0-HEAT</span>
+            <Zap size={10} className="text-emerald-400 fill-emerald-400" />
+            <span className="text-[10px] text-white font-black tracking-widest uppercase block bg-emerald-600/50 px-1.5 py-0.5 rounded">v5.0.0-ENT</span>
           </div>
         </div>
       </div>
