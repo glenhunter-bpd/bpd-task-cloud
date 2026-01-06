@@ -4,7 +4,7 @@ import { Book, ChevronRight, FileText, Info } from 'lucide-react';
 
 const DOCS = [
   { id: 'arch', name: 'System Architecture', file: 'docs/architecture.md', icon: Info },
-  { id: 'sync', name: 'Sync Protocol v2', file: 'docs/sync_protocol.md', icon: Book },
+  { id: 'sync', name: 'Sync Protocol v4', file: 'docs/sync_protocol.md', icon: Book },
   { id: 'history', name: 'Version History', file: 'docs/changelog.md', icon: FileText },
 ];
 
@@ -18,11 +18,11 @@ const DocsViewer: React.FC = () => {
       try {
         let text = "";
         if (selectedDoc.id === 'arch') {
-          text = "# BPD Cloud Architecture v2\n\n## System Overview\nThe BPD Global Task Sync application is a distributed management system for the Broadband Policy team.\n\n## Tech Stack\n- **Frontend**: React 19 + Tailwind CSS.\n- **State**: Reactive `DatabaseService`.\n- **Sync**: `BroadcastChannel` v2.\n- **AI**: Gemini 3 Flash.\n\n## Core Pillars\n1. **Real-time Sync**: Zero-latency cross-tab updates.\n2. **Operational Safety**: Sitewide custom confirmation dialogs.\n3. **Audit Trail**: Every change is logged with `updatedBy` metadata.";
+          text = "# BPD Cloud Architecture v4.0\n\n## System Overview\nThe BPD Cloud Registry V4 introduces the **Dependency Nexus**, a task-graph engine that manages prerequisites across the global cloud.\n\n## Tech Stack\n- **Frontend Core**: React 19 + Tailwind CSS.\n- **Data Layer**: Supabase (PostgreSQL + Realtime Engine).\n- **Nexus Engine**: Custom V4 Hierarchical Resolution.\n\n## Pillars\n1. **Dependency Nexus**: Tasks can now block other tasks until prerequisites are closed.\n2. **Cloud-First**: Centralized truth.\n3. **Resilience**: LocalStorage credential fallback.";
         } else if (selectedDoc.id === 'sync') {
-          text = "# Sync Protocol v2.2-STABLE\n\n## Goal\nTo ensure state consistency across all browser contexts (tabs/windows) for global staff.\n\n## Implementation\nThe system uses the `BroadcastChannel` API to emit `UPDATE` events. When a node receives an event, it fetches the latest state from the shared persistence layer.\n\n## Supported Entities\n- Tasks (Full CRUD)\n- Programs (Full CRUD)\n- Users (Full CRUD)\n- System Settings";
+          text = "# BPD Cloud Sync Protocol v4\n\n## The Handshake\nThe system executes a 3-step handshake: Credential Discovery, Ping Test, and WebSocket Attachment.\n\n## Nexus Implementation\nV4 introduces Dependency Tracking. When a task status changes, the Nexus engine re-evaluates the blockage status of all related tasks in the registry stream.\n\n## Conflict Resolution\nLast-Write-Wins (LWW) strategy is used, backed by database-level timestamps.";
         } else {
-          text = "# Version History\n\n## [v2.2.0-STABLE] - 2025-06-01\n### Added\n- **Final Stabilization**: Comprehensive audit for production readiness.\n- **Dynamic Styling**: Support for user-defined grant categories.\n- **Persona Management**: Improved switcher logic.\n\n## [v2.1.5] - 2025-05-30\n### Added\n- **Custom Confirmation Modal**: Branded dialogs for all delete actions.\n\n## [v2.1.4] - 2025-05-28\n### Added\n- **Team & Grant Editing**: Full CRUD for all core registries.";
+          text = "# Version History\n\n## [v4.0.0-PRO] - 2025-03-10\n### Added\n- **Dependency Nexus**: Multi-task linking and blocking logic.\n- **Blocker UI**: Visual badges for dependent tasks.\n- **Validation**: Prevention of completing blocked items.\n\n## [v3.6.0-ULTRA] - 2025-03-08\n### Added\n- **Manual Credential Bridge**: Fix for Offline Mode in static deployments.";
         }
         setContent(text);
       } catch (e) {
@@ -33,9 +33,9 @@ const DocsViewer: React.FC = () => {
   }, [selectedDoc]);
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm animate-in fade-in duration-500">
-      <div className="flex border-b border-slate-100 h-full">
-        <div className="w-72 border-r border-slate-100 bg-slate-50/50 p-6 space-y-4">
+    <div className="flex flex-col h-full bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm animate-in fade-in duration-500 min-h-[500px]">
+      <div className="flex border-b border-slate-100 h-full flex-1">
+        <div className="w-72 border-r border-slate-100 bg-slate-50/50 p-6 space-y-4 flex-shrink-0">
           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Knowledge Base</h3>
           <div className="space-y-1">
             {DOCS.map((doc) => {
@@ -61,7 +61,7 @@ const DocsViewer: React.FC = () => {
           </div>
         </div>
         
-        <div className="flex-1 p-10 overflow-y-auto bg-white scroll-smooth">
+        <div className="flex-1 p-10 overflow-y-auto bg-white scroll-smooth custom-scrollbar">
           <article className="max-w-3xl mx-auto">
             <div className="whitespace-pre-wrap font-sans leading-relaxed text-slate-700">
               {content.split('\n').map((line, i) => {
@@ -69,8 +69,8 @@ const DocsViewer: React.FC = () => {
                 if (line.startsWith('## ')) return <h2 key={i} className="text-xl font-bold text-slate-800 mt-10 mb-4 border-b border-slate-100 pb-2">{line.replace('## ', '')}</h2>;
                 if (line.startsWith('### ')) return <h3 key={i} className="text-lg font-bold text-slate-800 mt-8 mb-2">{line.replace('### ', '')}</h3>;
                 if (line.trim() === '') return <div key={i} className="h-4" />;
-                if (line.startsWith('- ')) return <li key={i} className="ml-4 mb-1 list-disc list-outside text-slate-600">{line.replace('- ', '')}</li>;
-                return <p key={i} className="mb-4 text-slate-600">{line}</p>;
+                if (line.startsWith('- ')) return <li key={i} className="ml-4 mb-1 list-disc list-outside text-slate-600 font-medium">{line.replace('- ', '')}</li>;
+                return <p key={i} className="mb-4 text-slate-600 font-medium">{line}</p>;
               })}
             </div>
           </article>

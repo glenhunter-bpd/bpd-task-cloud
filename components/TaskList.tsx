@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Task, AppState, TaskStatus } from '../types';
 import { db } from '../services/database';
 import { STATUS_COLORS, getProgramColor } from '../constants';
-import { Search, Filter, Plus, Trash2, Calendar, User as UserIcon, Pencil, Loader2 } from 'lucide-react';
+import { Search, Filter, Plus, Trash2, Calendar, User as UserIcon, Pencil, Loader2, Link2, AlertCircle } from 'lucide-react';
 import TaskModal from './TaskModal';
 import ConfirmationModal from './ConfirmationModal';
 
@@ -26,7 +26,21 @@ const TaskList: React.FC<TaskListProps> = ({ state }) => {
     return matchesSearch && matchesProgram;
   });
 
+  const getBlockers = (task: Task) => {
+    if (!task.dependentTasks || task.dependentTasks.length === 0) return [];
+    return task.dependentTasks.map(id => state.tasks.find(t => t.id === id)).filter(t => t && t.status !== TaskStatus.COMPLETED);
+  };
+
   const handleStatusChange = async (taskId: string, status: TaskStatus) => {
+    const task = state.tasks.find(t => t.id === taskId);
+    if (status === TaskStatus.COMPLETED && task) {
+       const blockers = getBlockers(task);
+       if (blockers.length > 0) {
+          alert(`CRITICAL BLOCKER: Cannot complete task until dependencies are closed: ${blockers.map(b => b?.name).join(', ')}`);
+          return;
+       }
+    }
+    
     setIsProcessing(taskId);
     const progress = status === TaskStatus.COMPLETED ? 100 : status === TaskStatus.OPEN ? 0 : 50;
     await db.updateTask(taskId, { status, progress });
@@ -70,7 +84,7 @@ const TaskList: React.FC<TaskListProps> = ({ state }) => {
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Cloud Task Registry</h2>
-          <p className="text-slate-500 text-sm">Synchronized with {state.users.length} active staff nodes.</p>
+          <p className="text-slate-500 text-sm">Nexus v4: Dependency-aware task synchronization.</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
@@ -88,14 +102,14 @@ const TaskList: React.FC<TaskListProps> = ({ state }) => {
             <input 
               type="text" 
               placeholder="Filter BPD cloud records..."
-              className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 text-sm"
+              className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 text-sm font-medium"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           <div className="flex items-center gap-2">
             <select 
-              className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold focus:outline-none cursor-pointer text-slate-600"
+              className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold focus:outline-none cursor-pointer text-slate-600 outline-none"
               value={filterProgram}
               onChange={(e) => setFilterProgram(e.target.value)}
             >
@@ -112,87 +126,98 @@ const TaskList: React.FC<TaskListProps> = ({ state }) => {
             <thead>
               <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
                 <th className="px-6 py-5">Operation Identity</th>
-                <th className="px-6 py-5">Source</th>
-                <th className="px-6 py-5">Owner</th>
                 <th className="px-6 py-5">Status</th>
-                <th className="px-6 py-5">Sync Progress</th>
+                <th className="px-6 py-5">Nexus</th>
+                <th className="px-6 py-5">Owner</th>
                 <th className="px-6 py-5">Timeline</th>
                 <th className="px-6 py-5 text-right">Registry Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredTasks.map((task) => (
-                <tr key={task.id} className="hover:bg-slate-50/30 transition-colors group">
-                  <td className="px-6 py-4">
-                    <div className="font-bold text-slate-800 text-sm">{task.name}</div>
-                    <div className="text-[10px] text-slate-400 truncate max-w-xs mt-0.5 font-medium">{task.description || 'Global Cloud Task.'}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase border tracking-tight ${getProgramColor(task.program)}`}>
-                      {task.program}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 bg-indigo-600 text-white rounded-lg flex items-center justify-center text-[9px] font-black shadow-sm">
-                        {task.assignedTo.substring(0, 2).toUpperCase()}
+              {filteredTasks.map((task) => {
+                const blockers = getBlockers(task);
+                const isBlocked = blockers.length > 0;
+
+                return (
+                  <tr key={task.id} className={`hover:bg-slate-50/30 transition-colors group ${isBlocked ? 'bg-amber-50/20' : ''}`}>
+                    <td className="px-6 py-4">
+                      <div className="flex items-start gap-2">
+                        {isBlocked && <AlertCircle size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />}
+                        <div>
+                          <div className="font-bold text-slate-800 text-sm">{task.name}</div>
+                          <div className="text-[10px] text-slate-400 truncate max-w-xs mt-0.5 font-medium">{task.description || 'Global Cloud Task.'}</div>
+                        </div>
                       </div>
-                      <span className="text-xs text-slate-600 font-bold tracking-tight">{task.assignedTo}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    {isProcessing === task.id ? (
-                      <div className="flex items-center gap-2 text-indigo-600 text-[9px] font-black">
-                        <Loader2 size={12} className="animate-spin" />
-                        SYNCING...
+                    </td>
+                    <td className="px-6 py-4">
+                      {isProcessing === task.id ? (
+                        <div className="flex items-center gap-2 text-indigo-600 text-[9px] font-black">
+                          <Loader2 size={12} className="animate-spin" />
+                          SYNCING...
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1.5">
+                          <select
+                            value={task.status}
+                            onChange={(e) => handleStatusChange(task.id, e.target.value as TaskStatus)}
+                            className={`text-[9px] font-black uppercase px-2 py-1.5 rounded-lg outline-none appearance-none cursor-pointer border-transparent hover:border-slate-300 transition-all ${STATUS_COLORS[task.status]}`}
+                          >
+                            {Object.values(TaskStatus).map(s => (
+                              <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                            ))}
+                          </select>
+                          {isBlocked && (
+                            <span className="text-[8px] font-black text-amber-600 tracking-widest uppercase">Blocked by {blockers.length} item(s)</span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col gap-1.5">
+                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase border tracking-tight w-fit ${getProgramColor(task.program)}`}>
+                          {task.program}
+                        </span>
+                        {task.dependentTasks.length > 0 && (
+                          <div className="flex items-center gap-1 text-[9px] font-bold text-indigo-500">
+                            <Link2 size={10} />
+                            {task.dependentTasks.length} linked
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <select
-                        value={task.status}
-                        onChange={(e) => handleStatusChange(task.id, e.target.value as TaskStatus)}
-                        className={`text-[9px] font-black uppercase px-2 py-1.5 rounded-lg outline-none appearance-none cursor-pointer border-transparent hover:border-slate-300 transition-all ${STATUS_COLORS[task.status]}`}
-                      >
-                        {Object.values(TaskStatus).map(s => (
-                          <option key={s} value={s}>{s.replace('_', ' ')}</option>
-                        ))}
-                      </select>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 min-w-[60px] bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                        <div 
-                          className={`h-full transition-all duration-1000 ease-out ${task.progress === 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`}
-                          style={{ width: `${task.progress}%` }}
-                        ></div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 bg-indigo-600 text-white rounded-lg flex items-center justify-center text-[9px] font-black shadow-sm">
+                          {task.assignedTo.substring(0, 2).toUpperCase()}
+                        </div>
+                        <span className="text-xs text-slate-600 font-bold tracking-tight">{task.assignedTo}</span>
                       </div>
-                      <span className="text-[9px] font-black text-slate-500 tabular-nums">{task.progress}%</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-1.5 text-slate-500 text-[10px] font-bold">
-                      <Calendar size={12} className="text-slate-300" />
-                      {new Date(task.plannedEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => handleEdit(task)}
-                        className="inline-flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button 
-                        onClick={(e) => handleDeleteClick(e, task.id)}
-                        className="inline-flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1.5 text-slate-500 text-[10px] font-bold">
+                        <Calendar size={12} className="text-slate-300" />
+                        {new Date(task.plannedEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={() => handleEdit(task)}
+                          className="inline-flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button 
+                          onClick={(e) => handleDeleteClick(e, task.id)}
+                          className="inline-flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {filteredTasks.length === 0 && (
@@ -201,7 +226,7 @@ const TaskList: React.FC<TaskListProps> = ({ state }) => {
                 <Search size={24} className="text-slate-300" />
               </div>
               <h3 className="font-bold text-slate-800 mb-1">No matches found in Cloud</h3>
-              <p className="text-sm text-slate-400">Try adjusting your filters for the v3 registry stream.</p>
+              <p className="text-sm text-slate-400">Try adjusting your filters for the v4 registry stream.</p>
             </div>
           )}
         </div>

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { AppState } from '../types';
 import { db } from '../services/database';
-import { User, Shield, Database, Terminal, Link, CheckCircle2, AlertTriangle, Key } from 'lucide-react';
+import { User, Shield, Database, Terminal, Link, CheckCircle2, AlertTriangle, Key, Zap } from 'lucide-react';
 
 interface SettingsViewProps {
   state: AppState;
@@ -28,9 +28,15 @@ const SettingsView: React.FC<SettingsViewProps> = ({ state }) => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      <header>
-        <h2 className="text-2xl font-bold text-slate-800">System Settings</h2>
-        <p className="text-slate-500">Global cloud environment parameters and session management.</p>
+      <header className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">System Infrastructure</h2>
+          <p className="text-slate-500 text-sm">Nexus v4: Critical Operational Parameters</p>
+        </div>
+        <div className="flex items-center gap-2 bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl font-black text-[10px] tracking-widest uppercase">
+          <Zap size={14} />
+          Version 4.0.0-PRO
+        </div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -80,7 +86,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ state }) => {
                 <input 
                   type="text"
                   placeholder="https://xyz.supabase.co"
-                  className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-xs outline-none focus:border-indigo-500 shadow-sm"
+                  className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-xs outline-none focus:border-indigo-500 shadow-sm font-medium"
                   value={cloudUrl}
                   onChange={e => setCloudUrl(e.target.value)}
                 />
@@ -90,7 +96,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ state }) => {
                 <input 
                   type="password"
                   placeholder="eyJhbGciOiJIUzI1NiIsInR..."
-                  className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-xs outline-none focus:border-indigo-500 shadow-sm"
+                  className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-xs outline-none focus:border-indigo-500 shadow-sm font-medium"
                   value={cloudKey}
                   onChange={e => setCloudKey(e.target.value)}
                 />
@@ -118,7 +124,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ state }) => {
             Switch your active profile to simulate different departmental roles across the BPD network.
           </p>
 
-          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
             {state.users.map((user) => (
               <button
                 key={user.id}
@@ -158,7 +164,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ state }) => {
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Release Build</span>
-                <span className="font-mono font-bold text-slate-800">v3.5.0-PRO</span>
+                <span className="font-mono font-bold text-slate-800">v4.0.0-PRO</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Environment</span>
@@ -181,7 +187,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ state }) => {
                <h3 className="font-bold">Security Compliance</h3>
              </div>
              <p className="text-sm text-slate-400 leading-relaxed mb-4">
-               All BPD cloud operations are encrypted and synchronized using the V2 Protocol. Modifications are cryptographically linked to your current identity.
+               All BPD cloud operations are encrypted and synchronized using the V3 Nexus Protocol. Modifications are cryptographically linked to your current identity.
              </p>
              <div className="flex items-center gap-2 text-[10px] font-mono text-slate-500 bg-black/20 p-2 rounded">
                <Terminal size={12} />

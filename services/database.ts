@@ -3,28 +3,17 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Task, Program, User, AppState, TaskStatus } from '../types';
 
 /**
- * BPD CLOUD DATABASE SERVICE V3.6-ULTRA
+ * BPD CLOUD DATABASE SERVICE V4.0-NEXUS
  * 
- * Optimized for static deployments. Specifically handles the lack of 
- * process.env in browser environments by providing a manual bridge.
+ * Optimized for Task Dependency Graph management and static deployments.
  */
 
 const getEnv = (key: string): string => {
-  // 1. Check localStorage first (User-provided manual override)
   const localValue = localStorage.getItem(`BPD_CLOUD_${key}`);
   if (localValue) return localValue.trim();
 
-  // 2. Check multiple common patterns for client-side environment variables
-  // Vite, Next.js, and standard process.env patterns included
-  const variants = [
-    key,
-    `VITE_${key}`,
-    `REACT_APP_${key}`,
-    `NEXT_PUBLIC_${key}`,
-    `PUBLIC_${key}`
-  ];
+  const variants = [key, `VITE_${key}`, `REACT_APP_${key}`, `NEXT_PUBLIC_${key}`, `PUBLIC_${key}`];
 
-  // Try to find the value in various global env objects
   for (const variant of variants) {
     // @ts-ignore
     if (typeof window !== 'undefined' && window.process?.env?.[variant]) {
@@ -50,39 +39,27 @@ class DatabaseService {
     this.reconnect();
   }
 
-  /**
-   * Attempts to establish a connection to the Supabase Cloud.
-   * Can be called with explicit credentials or will search env/storage.
-   */
-  // Added return type Promise<boolean> to fix type mismatch in initialize()
   public async reconnect(url?: string, key?: string): Promise<boolean> {
     const finalUrl = url || getEnv('SUPABASE_URL');
     const finalKey = key || getEnv('SUPABASE_ANON_KEY');
 
     if (finalUrl && finalKey) {
-      console.log("%c BPD Cloud: Initiating Handshake...", "color: #6366f1; font-weight: bold;");
       try {
         this.client = createClient(finalUrl, finalKey);
-        
-        // Immediate test fetch to verify credentials
         const { error } = await this.client.from('tasks').select('id').limit(1);
         
-        if (error) {
-           console.error("BPD Cloud: Credential validation failed", error);
-           this.isConnected = false;
-        } else {
-           console.log("%c BPD Cloud: Connection Verified!", "color: #10b981; font-weight: bold;");
+        if (!error) {
            this.setupRealtimeListeners();
            await this.syncWithCloud();
            this.isConnected = true;
+        } else {
+           this.isConnected = false;
         }
       } catch (e) {
-        console.error("BPD Cloud: Connection error", e);
         this.isConnected = false;
       }
     } else {
       this.isConnected = false;
-      console.warn("BPD Cloud: Credentials missing. Use Settings to link database.");
     }
     this.notifySubscribers(this.localState);
     return this.isConnected;
@@ -105,7 +82,6 @@ class DatabaseService {
 
   private setupRealtimeListeners() {
     if (!this.client) return;
-
     this.client
       .channel('bpd-realtime-global')
       .on('postgres_changes', { event: '*', schema: 'public' }, () => {
@@ -147,7 +123,7 @@ class DatabaseService {
         startDate: t.start_date || new Date().toISOString().split('T')[0],
         actualEndDate: t.actual_end_date || '',
         notes: [],
-        dependentTasks: []
+        dependentTasks: t.dependent_tasks || [] // Support for V4 dependency nexus
       }));
 
       this.localState = {
@@ -161,7 +137,6 @@ class DatabaseService {
       this.notifySubscribers(this.localState);
       return true;
     } catch (err) {
-      console.error('Cloud Sync Failed:', err);
       this.isConnected = false;
       this.notifySubscribers({ ...this.localState });
       return false;
@@ -175,8 +150,6 @@ class DatabaseService {
       users: initialData.users || [],
       currentUser: initialData.users ? initialData.users[0] : null
     };
-    
-    // Fixed: Now reconnect() returns a Promise<boolean>, so cloudSuccess is correctly typed.
     const cloudSuccess = await this.reconnect();
     this.notifySubscribers(this.localState);
     return cloudSuccess;
@@ -207,6 +180,7 @@ class DatabaseService {
       status: task.status,
       progress: task.progress,
       planned_end_date: task.plannedEndDate,
+      dependent_tasks: task.dependentTasks, // Support for V4
       updated_at: new Date().toISOString(),
       updated_by: this.localState.currentUser?.name || 'System'
     };
@@ -220,6 +194,7 @@ class DatabaseService {
     if (updates.assignedTo) dbUpdates.assigned_to = updates.assignedTo;
     if (updates.assignedToId) dbUpdates.assigned_to_id = updates.assignedToId;
     if (updates.plannedEndDate) dbUpdates.planned_end_date = updates.plannedEndDate;
+    if (updates.dependentTasks) dbUpdates.dependent_tasks = updates.dependentTasks;
     dbUpdates.updated_at = new Date().toISOString();
     dbUpdates.updated_by = this.localState.currentUser?.name || 'System';
     await this.client.from('tasks').update(dbUpdates).eq('id', taskId);

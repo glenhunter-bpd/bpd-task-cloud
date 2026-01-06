@@ -1,19 +1,23 @@
 
-# Version History
+# BPD Cloud Changelog
 
-## [v3.0.0-PRO] - 2025-06-15
+## [v4.0.0-PRO] - 2025-03-10
 ### Added
-- **Central Database Core**: Migrated from LocalSync to CloudSync v3 architecture.
-- **Asynchronous Data Handling**: Entire app upgraded to support async/await database operations.
-- **Cloud Status Hub**: Real-time visual indicator for database connectivity.
-- **Optimistic UI Upgrades**: Components now react instantly while cloud confirmations happen in the background.
-- **Branding Overhaul**: Professional high-contrast sidebar and PRO interface styling.
+- **Dependency Nexus**: Tasks can now be dependent on other tasks.
+- **Blocker Awareness**: Tasks with incomplete prerequisites are visually flagged as "Blocked".
+- **Execution Validation**: Prevention logic for completing tasks that have outstanding prerequisites.
+- **Enhanced Task Modal**: Dual-column layout in modal with searchable dependency selector.
 
-### Fixed
-- **Race Conditions**: Initialization now waits for cloud handshake before rendering.
-- **Data Integrity**: Improved reconciliation logic during multi-tab initialization.
+### Improved
+- **Nexus V3 Protocol**: Refined cryptographic identity linking for cloud mutations.
+- **UI Refresh**: Indigo/Slate high-contrast theme optimization for readability.
 
-## [v2.2.0-STABLE] - 2025-06-01
+## [v3.6.0-ULTRA] - 2025-03-08
 ### Added
-- **Final V2 Stabilization**: Comprehensive audit and cleanup of all core modules.
-- **Dynamic Style Engine**: Enhanced task and card rendering.
+- **Manual Credential Bridge**: Fixed "Offline Mode" in static deployments.
+- **LocalStorage persistence**: Browser-cached API credentials support.
+
+## [v3.5.0-PRO] - 2025-02-15
+### Added
+- **Gemini AI Audit v2**: Structured action plans.
+- **Sync Indicators**: Header status hub.
