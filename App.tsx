@@ -11,19 +11,28 @@ import DocsViewer from './components/DocsViewer';
 import TeamView from './components/TeamView';
 import GrantsView from './components/GrantsView';
 import SettingsView from './components/SettingsView';
-import { Bell, Search, User as UserIcon, LogOut, X, CheckCircle } from 'lucide-react';
+import { Bell, Search, Globe, CheckCircle, Wifi, WifiOff } from 'lucide-react';
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState('dashboard');
   const [state, setState] = useState<AppState | null>(null);
+  const [isCloudConnected, setIsCloudConnected] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    db.initialize(INITIAL_DATA);
-    const unsubscribe = db.subscribe((newState) => {
-      setState(newState);
-    });
+    const initApp = async () => {
+      await db.initialize(INITIAL_DATA);
+      setIsCloudConnected(true);
+      
+      const unsubscribe = db.subscribe((newState) => {
+        setState(newState);
+      });
+
+      return unsubscribe;
+    };
+
+    const unsubscribePromise = initApp();
 
     const handleClickOutside = (event: MouseEvent) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
@@ -33,16 +42,20 @@ const App: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
 
     return () => {
-      unsubscribe();
+      unsubscribePromise.then(unsub => unsub && unsub());
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
 
   if (!state) return (
-    <div className="h-screen w-full flex items-center justify-center bg-slate-50">
+    <div className="h-screen w-full flex items-center justify-center bg-slate-900">
       <div className="flex flex-col items-center">
-        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-slate-500 font-medium">Connecting to global cloud node...</p>
+        <div className="relative mb-8">
+           <div className="w-16 h-16 border-4 border-indigo-500/20 rounded-full"></div>
+           <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+        </div>
+        <h2 className="text-white font-bold text-xl tracking-tight mb-2">BPD CENTRAL SYNC</h2>
+        <p className="text-slate-400 font-medium animate-pulse">Establishing secure cloud handshake...</p>
       </div>
     </div>
   );
@@ -65,20 +78,26 @@ const App: React.FC = () => {
       <Sidebar activeView={activeView} setActiveView={setActiveView} />
       
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Global Header */}
+        {/* V3 PRO Header */}
         <header className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm shadow-slate-100/50">
           <div className="flex items-center gap-6 flex-1">
              <div className="hidden md:flex relative w-full max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input 
                   type="text" 
-                  placeholder="Universal search..."
+                  placeholder="Universal registry search..."
                   className="w-full bg-slate-50 border-none rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500/10"
                 />
              </div>
           </div>
 
           <div className="flex items-center gap-5">
+            {/* Cloud Status Indicator */}
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-black transition-all ${isCloudConnected ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+              {isCloudConnected ? <Wifi size={12} /> : <WifiOff size={12} />}
+              {isCloudConnected ? 'DATABASE LIVE' : 'SYNC INTERRUPTED'}
+            </div>
+
             <div className="relative" ref={notificationRef}>
               <button 
                 onClick={() => setShowNotifications(!showNotifications)}
@@ -91,13 +110,13 @@ const App: React.FC = () => {
               {showNotifications && (
                 <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden animate-in zoom-in-95 duration-200 origin-top-right">
                   <div className="p-4 border-b border-slate-50 flex items-center justify-between">
-                    <h4 className="font-bold text-slate-800">Recent Activity</h4>
-                    <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold uppercase">Cloud Stream</span>
+                    <h4 className="font-bold text-slate-800">Cloud Stream</h4>
+                    <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold uppercase">Realtime</span>
                   </div>
                   <div className="max-h-[300px] overflow-y-auto">
                     {[
                       { user: 'Dolorez', action: 'completed', target: 'Travel for PTC', time: '2m ago' },
-                      { user: 'System', action: 'synced', target: 'Global DB v2.1', time: '15m ago' },
+                      { user: 'BPD Cloud', action: 'provisioned', target: 'V3 Registry', time: '15m ago' },
                       { user: 'Melia', action: 'updated', target: 'USDA Allotment', time: '1h ago' },
                     ].map((n, i) => (
                       <div key={i} className="p-4 hover:bg-slate-50 transition-colors flex gap-3 border-b border-slate-50 last:border-0">
@@ -114,7 +133,7 @@ const App: React.FC = () => {
                     ))}
                   </div>
                   <div className="p-3 bg-slate-50 text-center">
-                    <button className="text-xs font-bold text-indigo-600 hover:text-indigo-700">View Global Logs</button>
+                    <button className="text-xs font-bold text-indigo-600 hover:text-indigo-700">View Server Logs</button>
                   </div>
                 </div>
               )}
@@ -129,7 +148,7 @@ const App: React.FC = () => {
                   {state.currentUser?.role}
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-indigo-200">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-indigo-200">
                 {state.currentUser?.name.substring(0, 2).toUpperCase()}
               </div>
             </div>

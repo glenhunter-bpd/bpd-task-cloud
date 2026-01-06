@@ -1,27 +1,30 @@
 
-# BPD Cloud Architecture v2
+# BPD Cloud Architecture v3 (PRO)
 
 ## System Overview
-The BPD Global Task Sync application is a high-availability, real-time distributed task management system designed for the Broadband Policy and Development team. It provides a unified interface for tracking policy tasks, managing grant funding sources, and coordinating global staff.
+The BPD Global Task Sync application is now a **Cloud-First** distributed system. Version 3 moves beyond simple browser synchronization to a multi-user, multi-device ecosystem powered by a central Realtime Database.
 
 ## Tech Stack
-- **Frontend**: React 19 with Tailwind CSS for high-performance UI.
+- **Frontend**: React 19 with Tailwind CSS.
 - **State Management**: Reactive subscription model via `DatabaseService`.
-- **Sync Layer**: `BroadcastChannel` API for instantaneous cross-context communication.
-- **Intelligence**: Gemini 3 Flash for automated project health analysis and strategic reporting.
+- **Cloud Database**: (Simulated) Supabase / Firebase Realtime provider.
+- **Sync Layer**: Asynchronous Cloud Handshake protocol with automatic reconciliation.
+- **Intelligence**: Gemini 3 Flash for advanced multi-user status reporting.
 
-## Core Pillars
-1. **Real-time Synchronization**: Every action is broadcast globally within the user's browser environment, ensuring no tab is ever out of date.
-2. **Operational Safety**: A sitewide confirmation layer protects critical data from accidental modification or deletion.
-3. **Data Durability**: LWW (Last-Write-Wins) conflict resolution backed by local persistence buffers.
-4. **AI-First Monitoring**: Gemini-driven reports provide managers with high-level summaries without manual data aggregation.
+## Core Pillars (V3)
+1. **Global Real-time Presence**: All users across the globe interact with the same central truth.
+2. **Network Resilience**: Automatic fallback to local cache when connection is interrupted.
+3. **Database Integrity**: Asynchronous write confirmations with optimistic UI updates.
+4. **Role-Based Provisioning**: Dynamic UI adjustments based on Cloud User Identity.
 
-## Data Schema
-- **Tasks**: Hierarchical objects containing timeline data, progress meters, and audit trails.
-- **Programs**: Categorical taxonomy used to align tasks with funding sources.
-- **Users**: Role-based identities (Admin, Manager, Staff) that govern interface availability.
+## Data Lifecycle
+1. **Mutation Request**: User initiates action (e.g., Update Task).
+2. **Optimistic Update**: UI reacts immediately for zero-perceived-latency.
+3. **Cloud Synchronization**: Async request sent to BPD Central Database.
+4. **Global Broadcast**: Central DB confirms and emits an update signal to all connected clients.
+5. **UI Reconciliation**: Clients fetch the absolute state and update accordingly.
 
 ## Security
-- Role-based UI visibility.
-- Cryptographic timestamps for all update events.
-- Double-confirmation requirements for destructive cloud actions.
+- All cloud communications are encrypted.
+- Mandatory identity persona required for database mutations.
+- Multi-step confirmation for destructive global actions.

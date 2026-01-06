@@ -80,7 +80,6 @@ export const PROGRAM_COLORS: Record<string, string> = {
   BPD: 'bg-rose-100 text-rose-700 border-rose-200',
 };
 
-// V2 Enhancement: Dynamic color selector for any user-added programs
 export const getProgramColor = (programName: string): string => {
   return PROGRAM_COLORS[programName] || 'bg-slate-100 text-slate-700 border-slate-200';
 };
