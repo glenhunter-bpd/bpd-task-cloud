@@ -3,9 +3,9 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Task, Program, User, AppState, TaskStatus, AppNotification } from '../types';
 
 /**
- * BPD CLOUD DATABASE SERVICE V4.1-PULSE
+ * BPD CLOUD DATABASE SERVICE V4.2-GRAPH
  * 
- * Featuring the Nexus Pulse notification engine for real-time collaborator tracking.
+ * Optimized for local-first reactivity and strict Supabase schema mapping.
  */
 
 const getEnv = (key: string): string => {
@@ -58,7 +58,7 @@ class DatabaseService {
            this.setupRealtimeListeners();
            await this.syncWithCloud();
            this.isConnected = true;
-           this.addNotification('SYSTEM', 'Cloud Link Established', 'Nexus protocol v4.1 is active.', 'info');
+           this.addNotification('SYSTEM', 'Cloud Link Established', 'Nexus protocol v4.2 is active.', 'info');
         } else {
            this.isConnected = false;
         }
@@ -128,7 +128,6 @@ class DatabaseService {
         dependentTasks: t.dependent_tasks || []
       }));
 
-      // --- Nexus Pulse: Change Detection ---
       this.detectCloudChanges(this.localState.tasks, mappedTasks);
 
       this.localState = {
@@ -149,19 +148,16 @@ class DatabaseService {
   }
 
   private detectCloudChanges(oldTasks: Task[], newTasks: Task[]) {
-    if (oldTasks.length === 0) return; // Skip initial load
+    if (oldTasks.length === 0) return;
 
     newTasks.forEach(newTask => {
       const oldTask = oldTasks.find(t => t.id === newTask.id);
-      
-      // Only notify if someone else made the change
       if (newTask.updatedBy !== this.localState.currentUser?.name) {
         if (!oldTask) {
           this.addNotification('TASK_UPDATE', 'New Registry Entry', `${newTask.updatedBy} registered "${newTask.name}"`, 'info');
         } else if (oldTask.status !== newTask.status) {
           this.addNotification('TASK_UPDATE', 'Status Transition', `"${newTask.name}" moved to ${newTask.status.replace('_', ' ')} by ${newTask.updatedBy}`, 'high');
           
-          // Dependency Unlocked Logic
           if (newTask.status === TaskStatus.COMPLETED) {
              const dependentOnThis = newTasks.filter(t => t.dependentTasks.includes(newTask.id));
              dependentOnThis.forEach(depTask => {
@@ -204,7 +200,8 @@ class DatabaseService {
       tasks: initialData.tasks || [],
       programs: initialData.programs || [],
       users: initialData.users || [],
-      currentUser: initialData.users ? initialData.users[0] : null
+      currentUser: initialData.users ? initialData.users[0] : null,
+      notifications: []
     };
     const cloudSuccess = await this.reconnect();
     this.notifySubscribers(this.localState);
@@ -224,9 +221,20 @@ class DatabaseService {
   }
 
   public async addTask(task: Omit<Task, 'id' | 'updatedAt' | 'updatedBy'>) {
+    const id = `t-${Date.now()}`;
+    const timestamp = new Date().toISOString();
+    const author = this.localState.currentUser?.name || 'System';
+
+    const newTask: Task = { ...task, id, updatedAt: timestamp, updatedBy: author };
+    
+    // Local-first update
+    this.localState.tasks = [newTask, ...this.localState.tasks];
+    this.notifySubscribers(this.localState);
+
     if (!this.client) return;
+
     const payload = {
-      id: `t-${Date.now()}`,
+      id,
       name: task.name,
       description: task.description,
       program: task.program,
@@ -235,74 +243,104 @@ class DatabaseService {
       priority: task.priority,
       status: task.status,
       progress: task.progress,
+      start_date: task.startDate,
       planned_end_date: task.plannedEndDate,
-      dependent_tasks: task.dependentTasks,
-      updated_at: new Date().toISOString(),
-      updated_by: this.localState.currentUser?.name || 'System'
+      dependent_tasks: task.dependentTasks, // Strict snake_case mapping
+      updated_at: timestamp,
+      updated_by: author
     };
-    await this.client.from('tasks').insert([payload]);
+
+    const { error } = await this.client.from('tasks').insert([payload]);
+    if (error) console.error("Cloud insert error:", error);
     this.syncWithCloud();
   }
 
   public async updateTask(taskId: string, updates: Partial<Task>) {
+    const timestamp = new Date().toISOString();
+    const author = this.localState.currentUser?.name || 'System';
+
+    // Local-first update
+    this.localState.tasks = this.localState.tasks.map(t => 
+      t.id === taskId ? { ...t, ...updates, updatedAt: timestamp, updatedBy: author } : t
+    );
+    this.notifySubscribers(this.localState);
+
     if (!this.client) return;
-    const dbUpdates: any = { ...updates };
-    if (updates.assignedTo) dbUpdates.assigned_to = updates.assignedTo;
-    if (updates.assignedToId) dbUpdates.assigned_to_id = updates.assignedToId;
-    if (updates.plannedEndDate) dbUpdates.planned_end_date = updates.plannedEndDate;
-    if (updates.dependentTasks) dbUpdates.dependent_tasks = updates.dependentTasks;
-    dbUpdates.updated_at = new Date().toISOString();
-    dbUpdates.updated_by = this.localState.currentUser?.name || 'System';
-    await this.client.from('tasks').update(dbUpdates).eq('id', taskId);
+
+    const dbUpdates: any = {
+      updated_at: timestamp,
+      updated_by: author
+    };
+
+    // Explicitly map camelCase to snake_case for Supabase
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.description !== undefined) dbUpdates.description = updates.description;
+    if (updates.program !== undefined) dbUpdates.program = updates.program;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    if (updates.progress !== undefined) dbUpdates.progress = updates.progress;
+    if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
+    if (updates.assignedTo !== undefined) dbUpdates.assigned_to = updates.assignedTo;
+    if (updates.assignedToId !== undefined) dbUpdates.assigned_to_id = updates.assignedToId;
+    if (updates.plannedEndDate !== undefined) dbUpdates.planned_end_date = updates.plannedEndDate;
+    if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
+    if (updates.dependentTasks !== undefined) dbUpdates.dependent_tasks = updates.dependentTasks;
+
+    const { error } = await this.client.from('tasks').update(dbUpdates).eq('id', taskId);
+    if (error) console.error("Cloud update error:", error);
     this.syncWithCloud();
   }
 
   public async deleteTask(taskId: string) {
+    this.localState.tasks = this.localState.tasks.filter(t => t.id !== taskId);
+    this.notifySubscribers(this.localState);
+
     if (!this.client) return;
     await this.client.from('tasks').delete().eq('id', taskId);
     this.syncWithCloud();
   }
 
   public async addProgram(p: any) { 
-    if(this.client) {
-      await this.client.from('programs').insert([{...p, id: `p-${Date.now()}`}]); 
-      this.syncWithCloud();
-    }
+    const id = `p-${Date.now()}`;
+    this.localState.programs = [...this.localState.programs, { ...p, id }];
+    this.notifySubscribers(this.localState);
+    if(this.client) await this.client.from('programs').insert([{...p, id}]); 
+    this.syncWithCloud();
   }
 
   public async updateProgram(programId: string, updates: Partial<Program>) {
-    if (this.client) {
-      await this.client.from('programs').update(updates).eq('id', programId);
-      this.syncWithCloud();
-    }
+    this.localState.programs = this.localState.programs.map(p => p.id === programId ? { ...p, ...updates } : p);
+    this.notifySubscribers(this.localState);
+    if (this.client) await this.client.from('programs').update(updates).eq('id', programId);
+    this.syncWithCloud();
   }
 
   public async deleteProgram(programId: string) {
-    if (this.client) {
-      await this.client.from('programs').delete().eq('id', programId);
-      this.syncWithCloud();
-    }
+    this.localState.programs = this.localState.programs.filter(p => p.id !== programId);
+    this.notifySubscribers(this.localState);
+    if (this.client) await this.client.from('programs').delete().eq('id', programId);
+    this.syncWithCloud();
   }
 
   public async addUser(u: any) { 
-    if(this.client) {
-      await this.client.from('users').insert([{...u, id: `u-${Date.now()}`}]); 
-      this.syncWithCloud();
-    }
+    const id = `u-${Date.now()}`;
+    this.localState.users = [...this.localState.users, { ...u, id }];
+    this.notifySubscribers(this.localState);
+    if(this.client) await this.client.from('users').insert([{...u, id}]); 
+    this.syncWithCloud();
   }
 
   public async updateUser(userId: string, updates: Partial<User>) {
-    if (this.client) {
-      await this.client.from('users').update(updates).eq('id', userId);
-      this.syncWithCloud();
-    }
+    this.localState.users = this.localState.users.map(u => u.id === userId ? { ...u, ...updates } : u);
+    this.notifySubscribers(this.localState);
+    if (this.client) await this.client.from('users').update(updates).eq('id', userId);
+    this.syncWithCloud();
   }
 
   public async deleteUser(userId: string) {
-    if (this.client) {
-      await this.client.from('users').delete().eq('id', userId);
-      this.syncWithCloud();
-    }
+    this.localState.users = this.localState.users.filter(u => u.id !== userId);
+    this.notifySubscribers(this.localState);
+    if (this.client) await this.client.from('users').delete().eq('id', userId);
+    this.syncWithCloud();
   }
 
   public async setCurrentUser(userId: string) {
