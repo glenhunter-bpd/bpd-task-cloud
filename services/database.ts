@@ -1,11 +1,12 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Task, Program, User, AppState, TaskStatus, AppNotification } from '../types';
+import { runSentinelAnalysis } from './geminiService';
 
 /**
- * BPD CLOUD DATABASE SERVICE V4.2-GRAPH
+ * BPD CLOUD DATABASE SERVICE V4.6.1-HEAT
  * 
- * Optimized for local-first reactivity and strict Supabase schema mapping.
+ * Optimized for local-first reactivity and thermal risk engine synchronization.
  */
 
 const getEnv = (key: string): string => {
@@ -15,15 +16,20 @@ const getEnv = (key: string): string => {
   const variants = [key, `VITE_${key}`, `REACT_APP_${key}`, `NEXT_PUBLIC_${key}`, `PUBLIC_${key}`];
 
   for (const variant of variants) {
-    // @ts-ignore
-    if (typeof window !== 'undefined' && window.process?.env?.[variant]) {
-       // @ts-ignore
-      return window.process.env[variant].trim();
-    }
-    // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env?.[variant]) {
+    try {
       // @ts-ignore
-      return import.meta.env[variant].trim();
+      const val = typeof window !== 'undefined' && (window as any).process?.env?.[variant] 
+        // @ts-ignore
+        ? (window as any).process.env[variant] 
+        // @ts-ignore
+        : (typeof import.meta !== 'undefined' && (import.meta as any).env?.[variant] 
+           // @ts-ignore
+           ? (import.meta as any).env[variant] 
+           : '');
+      
+      if (val) return String(val).trim();
+    } catch (e) {
+      // Silently fail and try next variant
     }
   }
   return '';
@@ -33,6 +39,7 @@ class DatabaseService {
   private client: SupabaseClient | null = null;
   private subscribers: Array<(state: AppState) => void> = [];
   private isConnected: boolean = false;
+  private lastSentinelRun: number = 0;
   private localState: AppState = { 
     tasks: [], 
     programs: [], 
@@ -58,7 +65,7 @@ class DatabaseService {
            this.setupRealtimeListeners();
            await this.syncWithCloud();
            this.isConnected = true;
-           this.addNotification('SYSTEM', 'Cloud Link Established', 'Nexus protocol v4.2 is active.', 'info');
+           this.addNotification('SYSTEM', 'Cloud Link Established', 'Nexus protocol v4.6 (HEAT) is active.', 'info');
         } else {
            this.isConnected = false;
         }
@@ -103,8 +110,8 @@ class DatabaseService {
     try {
       const [tasksRes, programsRes, usersRes] = await Promise.all([
         this.client.from('tasks').select('*').order('updated_at', { ascending: false }),
-        this.client.from('programs').select('*'),
-        this.client.from('users').select('*')
+        this.client.from('programs').select('*').order('name', { ascending: true }),
+        this.client.from('users').select('*').order('name', { ascending: true })
       ]);
 
       if (tasksRes.error) throw tasksRes.error;
@@ -137,14 +144,33 @@ class DatabaseService {
         users: (usersRes.data || []) as User[],
       };
 
+      if (!this.localState.currentUser && this.localState.users.length > 0) {
+        this.localState.currentUser = this.localState.users[0];
+      }
+
       this.isConnected = true;
       this.notifySubscribers(this.localState);
+      this.triggerSentinel(mappedTasks);
+      
       return true;
     } catch (err) {
       this.isConnected = false;
       this.notifySubscribers({ ...this.localState });
       return false;
     }
+  }
+
+  private async triggerSentinel(tasks: Task[]) {
+    const now = Date.now();
+    if (now - this.lastSentinelRun < 300000) return;
+    
+    this.lastSentinelRun = now;
+    const alerts = await runSentinelAnalysis(tasks);
+    
+    alerts.forEach((alert: any) => {
+      this.addNotification('SENTINEL', `Sentinel: ${alert.title}`, alert.message, 'high');
+    });
+    this.notifySubscribers(this.localState);
   }
 
   private detectCloudChanges(oldTasks: Task[], newTasks: Task[]) {
@@ -172,6 +198,9 @@ class DatabaseService {
   }
 
   private addNotification(type: any, title: string, message: string, priority: 'info' | 'high') {
+    const isDuplicate = this.localState.notifications?.some(n => n.message === message && n.type === type);
+    if (isDuplicate && type === 'SENTINEL') return;
+
     const newNote: AppNotification = {
       id: `nt-${Date.now()}-${Math.random()}`,
       type,
@@ -226,8 +255,6 @@ class DatabaseService {
     const author = this.localState.currentUser?.name || 'System';
 
     const newTask: Task = { ...task, id, updatedAt: timestamp, updatedBy: author };
-    
-    // Local-first update
     this.localState.tasks = [newTask, ...this.localState.tasks];
     this.notifySubscribers(this.localState);
 
@@ -245,13 +272,12 @@ class DatabaseService {
       progress: task.progress,
       start_date: task.startDate,
       planned_end_date: task.plannedEndDate,
-      dependent_tasks: task.dependentTasks, // Strict snake_case mapping
+      dependent_tasks: task.dependentTasks,
       updated_at: timestamp,
       updated_by: author
     };
 
-    const { error } = await this.client.from('tasks').insert([payload]);
-    if (error) console.error("Cloud insert error:", error);
+    await this.client.from('tasks').insert([payload]);
     this.syncWithCloud();
   }
 
@@ -259,7 +285,6 @@ class DatabaseService {
     const timestamp = new Date().toISOString();
     const author = this.localState.currentUser?.name || 'System';
 
-    // Local-first update
     this.localState.tasks = this.localState.tasks.map(t => 
       t.id === taskId ? { ...t, ...updates, updatedAt: timestamp, updatedBy: author } : t
     );
@@ -272,7 +297,6 @@ class DatabaseService {
       updated_by: author
     };
 
-    // Explicitly map camelCase to snake_case for Supabase
     if (updates.name !== undefined) dbUpdates.name = updates.name;
     if (updates.description !== undefined) dbUpdates.description = updates.description;
     if (updates.program !== undefined) dbUpdates.program = updates.program;
@@ -285,8 +309,7 @@ class DatabaseService {
     if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
     if (updates.dependentTasks !== undefined) dbUpdates.dependent_tasks = updates.dependentTasks;
 
-    const { error } = await this.client.from('tasks').update(dbUpdates).eq('id', taskId);
-    if (error) console.error("Cloud update error:", error);
+    await this.client.from('tasks').update(dbUpdates).eq('id', taskId);
     this.syncWithCloud();
   }
 
@@ -301,9 +324,24 @@ class DatabaseService {
 
   public async addProgram(p: any) { 
     const id = `p-${Date.now()}`;
-    this.localState.programs = [...this.localState.programs, { ...p, id }];
+    const timestamp = new Date().toISOString();
+    const author = this.localState.currentUser?.id || 'System';
+    
+    const newProgram = { ...p, id, createdAt: timestamp, createdBy: author };
+    this.localState.programs = [...this.localState.programs, newProgram];
     this.notifySubscribers(this.localState);
-    if(this.client) await this.client.from('programs').insert([{...p, id}]); 
+    
+    if(this.client) {
+      const payload = {
+        id,
+        name: p.name,
+        description: p.description,
+        color: p.color,
+        created_at: timestamp,
+        created_by: author
+      };
+      await this.client.from('programs').insert([payload]); 
+    }
     this.syncWithCloud();
   }
 
@@ -323,9 +361,23 @@ class DatabaseService {
 
   public async addUser(u: any) { 
     const id = `u-${Date.now()}`;
-    this.localState.users = [...this.localState.users, { ...u, id }];
+    const timestamp = new Date().toISOString();
+    
+    const newUser = { ...u, id, created_at: timestamp };
+    this.localState.users = [...this.localState.users, newUser];
     this.notifySubscribers(this.localState);
-    if(this.client) await this.client.from('users').insert([{...u, id}]); 
+    
+    if(this.client) {
+      await this.client.from('users').insert([{
+        id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        department: u.department,
+        avatar: u.avatar,
+        created_at: timestamp
+      }]); 
+    }
     this.syncWithCloud();
   }
 

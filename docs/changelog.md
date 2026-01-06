@@ -1,29 +1,28 @@
 
 # BPD Cloud Changelog
 
+## [v4.6.0-HEAT] - 2025-03-17
+### Added
+- **Thermal Risk Engine**: Dynamic health scoring for all grant programs based on priority and deadline proximity.
+- **Grant Health Heatmap**: New visual pulse system for high-risk grant portfolios on the Dashboard.
+- **Leadership HUD**: Strategic summary of program heat scores for resource reallocation.
+- **Proximity Multipliers**: Time-sensitive risk weighting for upcoming deadlines (<48h).
+- **Database Service v4.6.1**: Improved environment variable detection and local storage fallback logic.
+
+### Fixed
+- **SQL Constraint Documentation**: Added troubleshooting for `42P10` unique constraint errors in Supabase setup.
+- **Syntax Stability**: Refined template literals in `Dashboard.tsx` and `GrantsView.tsx` to prevent unexpected string errors.
+
+### Improved
+- **Grants UI**: Redesigned program cards with risk-aware themes and thermal progress bars.
+- **Real-time Performance**: Optimized state-diffing when processing remote cloud updates.
+
+## [v4.5.0-SENTINEL] - 2025-03-16
+### Added
+- **Autonomous AI Sentinel**: Proactive background agent for anomaly detection.
+- **Sentinel Advisory UI**: AI risk component in "My Mission" view.
+- **Quick-Switcher**: Identity switching in global header.
+
 ## [v4.3.0-MISSION] - 2025-03-15
 ### Added
-- **My Mission Command Center**: Personalized dashboard for individual staff members.
-- **Blocker Detection**: Automated identification of tasks owned by the user that are currently stalling the global team.
-- **Actionable Item Highlighting**: Real-time identification of tasks that have just been "unblocked" by peer completions.
-- **Personalized Analytics**: Individual completion velocity and operational load tracking.
-
-### Improved
-- **Navigation**: Sidebar updated with the "My Mission" Target icon.
-- **Dashboard Separation**: Clarified Global vs. Individual views for better signal-to-noise ratio.
-
-## [v4.2.0-GRAPH] - 2025-03-14
-### Added
-- **Nexus Timeline**: Full Gantt-style visualizer for operational tasks.
-- **SVG Dependency Lines**: Real-time cubic-bezier connectors between linked operations.
-- **Critical Path Highlighting**: Visual indicators for tasks that are currently "Blocking" others.
-- **Lock Metadata**: Visual lock icon for tasks waiting on prerequisites.
-
-### Improved
-- **Navigation**: Sidebar refresh with GitGraph icons for timeline access.
-- **UI Performance**: Memoized dependency line calculations for smooth timeline scrolling.
-
-## [v4.1.0-PULSE] - 2025-03-12
-### Added
-- **Nexus Pulse Engine**: Real-time event tracking for collaborator updates.
-- **Dependency Alerts**: Automated notifications when a prerequisite task is completed.
+- **My Mission Command Center**: Personalized operational summary focusing on blockers.

@@ -1,10 +1,10 @@
 
 {
-  "name": "BPD Cloud Registry Pro V4",
-  "description": "A mission-critical project management and task synchronization cloud platform for the Broadband Policy and Development team. Built with Supabase Realtime and Gemini AI.",
+  "name": "BPD Cloud Registry Pro V4.6",
+  "description": "A mission-critical project management and task synchronization cloud platform for the Broadband Policy and Development team. Built with Supabase Realtime and Gemini AI Sentinel.",
   "requestFramePermissions": [
     "camera",
     "microphone"
   ],
-  "version": "4.3.0-MISSION"
+  "version": "4.6.0-HEAT"
 }

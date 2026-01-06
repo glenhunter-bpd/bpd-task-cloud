@@ -13,7 +13,7 @@ export enum TaskPriority {
   CRITICAL = 'Critical'
 }
 
-export type NotificationType = 'TASK_UPDATE' | 'SYSTEM' | 'DEPENDENCY' | 'ALERT';
+export type NotificationType = 'TASK_UPDATE' | 'SYSTEM' | 'DEPENDENCY' | 'ALERT' | 'SENTINEL';
 
 export interface AppNotification {
   id: string;

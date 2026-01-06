@@ -1,37 +1,39 @@
-# BPD Cloud Sync Protocol v3
 
-## The Handshake Sequence
-When a BPD Cloud node initializes, it executes the following protocol to establish the "Single Source of Truth":
+# BPD Cloud Sync Protocol v4.6
 
-1. **Credential Discovery**: 
-   - Primary: Scan `process.env` (Build-time variables).
-   - Secondary: Scan `localStorage` for `BPD_CLOUD_SUPABASE_URL` (Manual Link).
-2. **Ping Test**: 
-   - Execute an immediate `SELECT 1` query to verify the cloud node is responsive.
-3. **Full Reconciliation**: 
-   - Perform an initial bulk fetch of `tasks`, `programs`, and `users`.
-4. **WebSocket Attachment**: 
-   - Open a Realtime Channel for the `public` schema.
+## 1. Handshake Sequence
+Every node (browser instance) performs an initialization handshake:
+1. **Discovery**: Check `process.env` then `localStorage` for Supabase credentials.
+2. **Ping**: Immediate limited query to verify the cloud node is alive.
+3. **Reconciliation**: Bulk fetch of tasks, programs, and users to build the local shadow state.
+4. **Subscription**: Attach to the `public` schema via WebSocket for real-time `INSERT/UPDATE/DELETE` events.
 
-## Realtime Implementation
-The system utilizes Supabase Realtime Channels to eliminate manual polling:
+## 2. Database Provisioning (Critical)
+For the sync engine to function without SQL errors (specifically `42P10`), the remote database must have **Unique Constraints** established on the lookup keys.
 
-```typescript
-this.client
-  .channel('bpd-realtime-global')
-  .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
-    // Immediate re-sync on any remote insert, update, or delete
-    this.syncWithCloud();
-  })
+### Required SQL Fix for "ON CONFLICT" errors:
+If the Supabase SQL editor returns `ERROR: 42P10: there is no unique or exclusion constraint matching the ON CONFLICT specification`, run the following:
+```sql
+-- Required for Programs Upsert
+ALTER TABLE programs ADD CONSTRAINT programs_name_key UNIQUE (name);
+
+-- Required for Users Upsert
+ALTER TABLE users ADD CONSTRAINT users_email_key UNIQUE (email);
 ```
 
-## Conflict Resolution
-- **Strategy**: Last-Write-Wins (LWW).
-- **Metadata**: Every record contains an `updated_at` timestamp and an `updated_by` identity. 
-- **Atomic Operations**: Mutations are sent as individual POST requests to ensure database-level consistency.
+## 3. Real-time Resolution
+When a remote change occurs:
+- The `postgres_changes` callback is triggered via the `bpd-realtime-global` channel.
+- A full `syncWithCloud()` is executed.
+- The system diffs the `updated_at` and `updated_by` fields.
+- If `updated_by` != `currentUser`, a **Nexus Pulse** notification is generated.
 
-## Resilience & Fallback
-If the WebSocket connection is interrupted:
-- The `DatabaseService` switches the global state to `isConnected = false`.
-- The UI displays the "OFFLINE MODE" warning.
-- Mutations are saved to the local `AppState` and will attempt to re-sync upon the next successful handshake.
+## 4. The Sentinel Cycle
+The AI Sentinel adds a secondary processing layer:
+1. **Trigger**: After every cloud sync, the service checks the `lastSentinelRun` timestamp.
+2. **Analysis**: If > 300 seconds have passed, a registry snapshot is sent to Gemini.
+3. **Broadcast**: Structured anomalies (JSON) are parsed and inserted into the notification feed with the `SENTINEL` type.
+
+## 5. Conflict Management
+- **Strategy**: Last-Write-Wins (LWW) based on database timestamps.
+- **Integrity**: UI-level blockers prevent users from moving tasks to `COMPLETED` if dependency IDs are not in a completed state.

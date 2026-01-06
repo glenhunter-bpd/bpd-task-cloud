@@ -12,8 +12,8 @@ import TeamView from './components/TeamView';
 import GrantsView from './components/GrantsView';
 import SettingsView from './components/SettingsView';
 import TimelineView from './components/TimelineView';
-import MyMission from './components/MyMission'; // New V4.3 Import
-import { Bell, Search, AlertCircle, CheckCircle, Wifi, WifiOff, Trash2, Clock, Check, Inbox } from 'lucide-react';
+import MyMission from './components/MyMission'; 
+import { Bell, Search, AlertCircle, CheckCircle, Wifi, WifiOff, Trash2, Clock, Check, Inbox, ChevronDown, User as UserIcon, LogOut, Sparkles, Shield } from 'lucide-react';
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState('dashboard');
@@ -21,7 +21,10 @@ const App: React.FC = () => {
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const [hasKeys, setHasKeys] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  
   const notificationRef = useRef<HTMLDivElement>(null);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const initApp = async () => {
@@ -43,6 +46,9 @@ const App: React.FC = () => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
         setShowNotifications(false);
+      }
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+        setShowUserDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -68,7 +74,7 @@ const App: React.FC = () => {
   const renderView = () => {
     switch (activeView) {
       case 'dashboard': return <Dashboard state={state} onNavigate={setActiveView} />;
-      case 'mission': return <MyMission state={state} />; // New V4.3 Case
+      case 'mission': return <MyMission state={state} />;
       case 'tasks': return <TaskList state={state} />;
       case 'kanban': return <KanbanBoard state={state} />;
       case 'timeline': return <TimelineView state={state} />;
@@ -91,12 +97,18 @@ const App: React.FC = () => {
     setShowNotifications(false);
   };
 
+  const handleSwitchUser = (userId: string) => {
+    db.setCurrentUser(userId);
+    setShowUserDropdown(false);
+  };
+
   const getNotificationIcon = (type: string) => {
     switch(type) {
       case 'TASK_UPDATE': return <Inbox size={14} className="text-indigo-500" />;
       case 'DEPENDENCY': return <CheckCircle size={14} className="text-emerald-500" />;
       case 'SYSTEM': return <Wifi size={14} className="text-amber-500" />;
       case 'ALERT': return <AlertCircle size={14} className="text-rose-500" />;
+      case 'SENTINEL': return <Sparkles size={14} className="text-violet-500" />;
       default: return <Clock size={14} className="text-slate-500" />;
     }
   };
@@ -106,7 +118,7 @@ const App: React.FC = () => {
       <Sidebar activeView={activeView} setActiveView={setActiveView} />
       
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* V4.1 Nexus Pulse Header */}
+        {/* V4.5 Personalization Header with Sentinel Integration */}
         <header className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between sticky top-0 z-50 shadow-sm shadow-slate-100/50">
           <div className="flex items-center gap-6 flex-1">
              <div className="hidden md:flex relative w-full max-w-md">
@@ -165,19 +177,25 @@ const App: React.FC = () => {
                   <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
                     {state.notifications && state.notifications.length > 0 ? (
                       state.notifications.map((n) => (
-                        <div key={n.id} className={`p-4 hover:bg-slate-50/80 transition-all flex gap-3 border-b border-slate-50 last:border-0 relative ${!n.read ? 'bg-indigo-50/30' : ''}`}>
-                          {!n.read && <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-8 bg-indigo-500 rounded-full" />}
+                        <div key={n.id} className={`p-4 hover:bg-slate-50/80 transition-all flex gap-3 border-b border-slate-50 last:border-0 relative ${!n.read ? 'bg-indigo-50/30' : ''} ${n.type === 'SENTINEL' ? 'bg-violet-50/20' : ''}`}>
+                          {!n.read && <div className={`absolute left-1 top-1/2 -translate-y-1/2 w-1 h-8 rounded-full ${n.type === 'SENTINEL' ? 'bg-violet-500' : 'bg-indigo-500'}`} />}
                           <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-white border border-slate-100 shadow-sm`}>
                             {getNotificationIcon(n.type)}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-0.5">
-                               <p className="text-xs text-slate-900 font-bold truncate">{n.title}</p>
+                               <p className={`text-xs font-bold truncate ${n.type === 'SENTINEL' ? 'text-violet-800' : 'text-slate-900'}`}>{n.title}</p>
                                <span className="text-[9px] text-slate-400 font-medium">
                                  {new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                </span>
                             </div>
                             <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-2">{n.message}</p>
+                            {n.type === 'SENTINEL' && (
+                               <div className="mt-1 flex items-center gap-1">
+                                  <Shield size={10} className="text-violet-400" />
+                                  <span className="text-[8px] font-black text-violet-400 uppercase tracking-widest">AI Sentinel Observation</span>
+                               </div>
+                            )}
                           </div>
                         </div>
                       ))
@@ -200,16 +218,73 @@ const App: React.FC = () => {
             
             <div className="h-8 w-[1px] bg-slate-200"></div>
 
-            <div className="flex items-center gap-3 pl-2">
-              <div className="text-right hidden sm:block">
-                <div className="text-sm font-bold text-slate-800 leading-none">{state.currentUser?.name}</div>
-                <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-tighter mt-1">
-                  {state.currentUser?.role}
+            {/* Quick User Switcher */}
+            <div className="relative" ref={userDropdownRef}>
+              <button 
+                onClick={() => setShowUserDropdown(!showUserDropdown)}
+                className={`flex items-center gap-3 pl-2 py-1.5 pr-3 rounded-xl transition-all border border-transparent ${showUserDropdown ? 'bg-slate-100 border-slate-200' : 'hover:bg-slate-50'}`}
+              >
+                <div className="text-right hidden sm:block">
+                  <div className="text-sm font-bold text-slate-800 leading-none">{state.currentUser?.name}</div>
+                  <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-tighter mt-1">
+                    {state.currentUser?.role}
+                  </div>
                 </div>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-indigo-200">
-                {state.currentUser?.name?.substring(0, 2).toUpperCase() || '??'}
-              </div>
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-indigo-200 relative group">
+                  {state.currentUser?.name?.substring(0, 2).toUpperCase() || '??'}
+                  <div className="absolute -bottom-1 -right-1 bg-white p-0.5 rounded-full border border-slate-200">
+                    <ChevronDown size={10} className={`text-slate-400 transition-transform ${showUserDropdown ? 'rotate-180' : ''}`} />
+                  </div>
+                </div>
+              </button>
+
+              {showUserDropdown && (
+                <div className="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden animate-in zoom-in-95 duration-200 origin-top-right">
+                  <div className="p-4 border-b border-slate-50 bg-slate-50/50">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Staff Directory</h4>
+                    <p className="text-[11px] text-slate-500 mt-1">Switch identity to simulate departmental context.</p>
+                  </div>
+                  
+                  <div className="max-h-[320px] overflow-y-auto custom-scrollbar">
+                    {state.users.map((user) => (
+                      <button
+                        key={user.id}
+                        onClick={() => handleSwitchUser(user.id)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all border-b border-slate-50 last:border-0 ${
+                          state.currentUser?.id === user.id 
+                            ? 'bg-indigo-50/50' 
+                            : 'hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${
+                          state.currentUser?.id === user.id 
+                            ? 'bg-indigo-600 text-white' 
+                            : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {user.name.substring(0, 2).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-bold text-slate-800 truncate">{user.name}</div>
+                          <div className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">{user.role} • {user.department}</div>
+                        </div>
+                        {state.currentUser?.id === user.id && (
+                          <div className="w-2 h-2 bg-indigo-600 rounded-full"></div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  <div className="p-3 bg-slate-50 border-t border-slate-100">
+                    <button 
+                      onClick={() => { setActiveView('settings'); setShowUserDropdown(false); }}
+                      className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-white border border-slate-200 text-[10px] font-black text-slate-600 hover:bg-slate-50 transition-all uppercase tracking-widest"
+                    >
+                      <LogOut size={12} className="rotate-180" />
+                      Manage Infrastructure
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>

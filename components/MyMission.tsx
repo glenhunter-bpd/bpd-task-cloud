@@ -2,8 +2,9 @@
 import React, { useMemo, useState } from 'react';
 import { AppState, Task, TaskStatus } from '../types';
 import { db } from '../services/database';
-import { getProgramColor } from '../constants';
-import { Target, ShieldCheck, Rocket, Lock, AlertCircle, ChevronRight, CheckCircle2, Zap, Clock } from 'lucide-react';
+import { getProgramColor, STATUS_COLORS } from '../constants';
+// Added Rocket and Sparkles/Shield to the lucide-react imports
+import { Target, Lock, AlertCircle, ChevronRight, CheckCircle2, Zap, Clock, ListTodo, Rocket, Sparkles, Shield } from 'lucide-react';
 import TaskModal from './TaskModal';
 
 interface MyMissionProps {
@@ -20,12 +21,14 @@ const MyMission: React.FC<MyMissionProps> = ({ state }) => {
     return state.tasks.filter(t => t.assignedToId === currentUser?.id);
   }, [state.tasks, currentUser]);
 
-  const stats = useMemo(() => {
-    const total = myTasks.length;
-    const completed = myTasks.filter(t => t.status === TaskStatus.COMPLETED).length;
-    const inProgress = myTasks.filter(t => t.status === TaskStatus.IN_PROGRESS).length;
-    return { total, completed, inProgress, rate: total > 0 ? Math.round((completed / total) * 100) : 0 };
+  const allPending = useMemo(() => {
+    return myTasks.filter(t => t.status !== TaskStatus.COMPLETED)
+      .sort((a, b) => new Date(a.plannedEndDate).getTime() - new Date(b.plannedEndDate).getTime());
   }, [myTasks]);
+
+  const sentinelAlerts = useMemo(() => {
+    return state.notifications?.filter(n => n.type === 'SENTINEL' && !n.read).slice(0, 2) || [];
+  }, [state.notifications]);
 
   const directBlockers = useMemo(() => {
     // Tasks I own that are blocking others
@@ -87,47 +90,36 @@ const MyMission: React.FC<MyMissionProps> = ({ state }) => {
         </div>
       </header>
 
-      {/* Hero Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-8 rounded-[2rem] text-white shadow-xl shadow-indigo-200 relative overflow-hidden group">
+      {/* AI Sentinel Advisory Section */}
+      {sentinelAlerts.length > 0 && (
+        <div className="bg-violet-900 text-white rounded-[2rem] p-8 shadow-xl shadow-violet-200 relative overflow-hidden group">
            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-700">
-             <Rocket size={140} />
+             <Sparkles size={160} />
            </div>
            <div className="relative z-10">
-             <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Completion Velocity</span>
-             <div className="text-5xl font-black my-2 tabular-nums">{stats.rate}%</div>
-             <p className="text-indigo-100 text-sm font-medium">Efficiency across your active task registry.</p>
-           </div>
-        </div>
-
-        <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col justify-between">
-           <div>
-             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Active Load</span>
-             <div className="text-4xl font-black text-slate-800 mt-2 mb-4 tabular-nums">{stats.inProgress + (stats.total - stats.completed - stats.inProgress)}</div>
-           </div>
-           <div className="flex items-center gap-2">
-              <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${stats.rate}%` }}></div>
+              <div className="flex items-center gap-2 mb-6">
+                 <div className="w-8 h-8 rounded-lg bg-violet-500/30 flex items-center justify-center">
+                    <Shield size={18} className="text-violet-300" />
+                 </div>
+                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-300">Sentinel Risk Advisory</span>
               </div>
-              <span className="text-[10px] font-bold text-slate-500 uppercase">{stats.completed}/{stats.total} DONE</span>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                 {sentinelAlerts.map(alert => (
+                    <div key={alert.id} className="border-l border-violet-500/50 pl-6 py-1">
+                       <h4 className="font-bold text-lg mb-2 text-violet-50">{alert.title.replace('Sentinel: ', '')}</h4>
+                       <p className="text-sm text-violet-200/80 leading-relaxed">{alert.message}</p>
+                    </div>
+                 ))}
+              </div>
+              
+              <div className="mt-8 flex items-center gap-2">
+                 <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                 <span className="text-[9px] font-black uppercase tracking-widest text-violet-400">Proactive Analysis Continuous</span>
+              </div>
            </div>
         </div>
-
-        <div className="bg-slate-900 p-8 rounded-[2rem] text-white shadow-xl shadow-slate-200 relative overflow-hidden">
-           <div className="absolute bottom-0 right-0 p-4 opacity-5">
-             <ShieldCheck size={120} />
-           </div>
-           <div className="relative z-10">
-             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">Security Clearance</span>
-             <div className="text-xl font-bold mt-2">{currentUser.role}</div>
-             <div className="text-xs text-slate-400 mt-1 uppercase font-black tracking-widest">{currentUser.department} Division</div>
-             <div className="mt-6 flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Node Synchronized</span>
-             </div>
-           </div>
-        </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* BLOCKER FOCUS */}
@@ -233,6 +225,70 @@ const MyMission: React.FC<MyMissionProps> = ({ state }) => {
                 </div>
               )}
            </div>
+        </div>
+      </div>
+
+      {/* MASTER PENDING QUEUE - Full Registry View for Current User */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-2">
+           <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+             <ListTodo size={16} className="text-slate-600" />
+             Master Mission Queue
+           </h3>
+           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{allPending.length} PENDING TOTAL</span>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm">
+           <table className="w-full text-left">
+              <thead>
+                 <tr className="bg-slate-50 text-slate-400 text-[9px] font-black uppercase tracking-[0.2em]">
+                    <th className="px-8 py-5">Operation</th>
+                    <th className="px-8 py-5">Status</th>
+                    <th className="px-8 py-5">Grant</th>
+                    <th className="px-8 py-5">Target Date</th>
+                    <th className="px-8 py-5 text-right">Registry</th>
+                 </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                 {allPending.map(task => (
+                    <tr key={task.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => handleEdit(task)}>
+                       <td className="px-8 py-4">
+                          <div className="font-bold text-slate-800 text-sm group-hover:text-indigo-600 transition-colors">{task.name}</div>
+                          <div className="text-[10px] text-slate-400 font-medium mt-0.5">{task.priority} Priority</div>
+                       </td>
+                       <td className="px-8 py-4">
+                          <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-full ${STATUS_COLORS[task.status]}`}>
+                             {task.status.replace('_', ' ')}
+                          </span>
+                       </td>
+                       <td className="px-8 py-4">
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase border tracking-tight ${getProgramColor(task.program)}`}>
+                             {task.program}
+                          </span>
+                       </td>
+                       <td className="px-8 py-4">
+                          <div className="flex items-center gap-2 text-slate-500 text-[10px] font-bold">
+                             <Clock size={12} className="text-slate-300" />
+                             {new Date(task.plannedEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase()}
+                          </div>
+                       </td>
+                       <td className="px-8 py-4 text-right">
+                          <div className="text-[10px] font-black text-indigo-500 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                             Details <ChevronRight size={10} className="inline ml-1" />
+                          </div>
+                       </td>
+                    </tr>
+                 ))}
+                 {allPending.length === 0 && (
+                    <tr>
+                       <td colSpan={5} className="py-12 text-center">
+                          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Personal Mission Registry is Empty</p>
+                          <p className="text-xs text-slate-400 mt-1">All assigned operations have been finalized.</p>
+                       </td>
+                    </tr>
+                 )}
+              </tbody>
+           </table>
         </div>
       </div>
     </div>

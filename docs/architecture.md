@@ -1,23 +1,37 @@
 
-# BPD Cloud Registry Architecture v4.3
+# BPD Cloud Registry Architecture v4.6.0-HEAT
 
 ## System Overview
-The Broadband Policy & Development (BPD) Cloud Registry V4.3 introduces the **My Mission** command center, providing staff with personalized, high-leverage operational oversight.
+The Broadband Policy & Development (BPD) Cloud Registry is a mission-critical, local-first operational database. Version 4.6.0-HEAT introduces the **Thermal Risk Engine**, which monitors grant-level health through multi-variable threshold analysis.
 
-## Tech Stack
-- **Frontend Core**: React 19 (ES6 Modules) with Tailwind CSS.
-- **Data Layer**: Supabase (PostgreSQL + Realtime Engine).
-- **Nexus Engine**: V4.2 Graph with SVG-based cubic-bezier path mapping.
-- **AI Intelligence**: Google Gemini 3 Flash-Preview.
-- **Mission Engine**: V4.3 Personalized priority scoring for direct blockers and unblocked tasks.
+## Core Tech Stack
+- **Frontend Core**: React 19 (ES6 Modules)
+- **Styling**: Tailwind CSS + Lucide Icons
+- **Data Layer**: Supabase (PostgreSQL + Realtime WebSocket)
+- **Intelligence**: Google Gemini 3 Flash-Preview (Model: `gemini-3-flash-preview`)
+- **Version Control**: Semantic versioning (Current: v4.6.0-HEAT)
 
-## Architecture Pillars
-1. **My Mission (New V4.3)**: Personalized view for individual staff. Scans the global graph to identify tasks that are 'Direct Blockers' (owned by you, blocking others) or 'Actionable' (all prerequisites met).
-2. **Dependency Nexus**: Version 4 manages prerequisites. V4.2 adds visual "Critical Path" identification using recursive dependency tree scanning.
-3. **Nexus Pulse Engine**: V4.1 diffs cloud snapshots to alert users of peer updates.
-4. **SVG Dependency Mapper**: Uses cubic-bezier paths to link task completion dates to subsequent start dates in the timeline view.
-5. **Resilience**: Credentials persisted in `localStorage` for headless deployments.
+## Key Architectural Pillars
 
-## Priority Logic (My Mission)
-- **Direct Blocker**: `OwnedBy(User) AND Status != COMPLETE AND EXISTS(DependentTask WHERE Status != COMPLETE)`
-- **Actionable Item**: `OwnedBy(User) AND Status != COMPLETE AND ALL(Prerequisites WHERE Status == COMPLETE)`
+### 1. Thermal Risk Engine (V4.6 HEAT Build)
+The Heatmap monitors pressure points by calculating a weighted risk score for every grant program in the registry.
+- **Algorithm**: `Score = Sum(TaskWeight * TimeMultiplier)`.
+- **Weights**: Critical (20), High (10), Medium (5), Low (2).
+- **Time Multiplier**: Overdue (3x), <48h (2.5x), <7d (1.5x), Else (1x).
+- **Visualization**: Inferno (Red Pulse), High (Amber Glow), Stable (Emerald).
+
+### 2. Database Integrity & Upsert Logic
+To support real-time synchronization and "Insert or Update" (Upsert) operations, the database requires specific unique constraints:
+- **Programs Table**: Unique constraint on `name` field.
+- **Users Table**: Unique constraint on `email` field.
+- **Enforcement**: This prevents duplicate registry entries during bulk cloud reconciliations.
+
+### 3. AI Sentinel (Background Observer)
+Autonomous logic loop identifying operational anomalies every 300 seconds.
+- **Output**: Broadcasts risk anomalies to the global pulse feed using Gemini JSON schema extraction.
+
+### 4. Dependency Nexus (Graph Engine)
+Recursive dependency tree scanning enforces strict completion order and visualizes the "Critical Path" in the Timeline view.
+
+### 5. Mission Personalization
+Staff profiles drive the "My Mission" view, filtering tasks into "Direct Blockers" (items you own blocking others) and "Newly Actionable" (items where dependencies are met).

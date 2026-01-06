@@ -1,14 +1,11 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { Task } from "../types";
-
-// Always created per-request for most up-to-date configuration.
 
 /**
  * Performs an AI-driven operational audit of project tasks using Gemini.
  */
 export async function analyzeProjectHealth(tasks: Task[]) {
-  // Initialize SDK right before the call to handle potentially dynamic environment configurations.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
@@ -36,10 +33,66 @@ export async function analyzeProjectHealth(tasks: Task[]) {
       }
     });
 
-    // Accessing .text directly as a property, per the latest Google GenAI SDK rules.
     return response.text;
   } catch (error) {
     console.error("Gemini AI error:", error);
     return "The project intelligence stream is temporarily unavailable. Please retry the audit shortly.";
+  }
+}
+
+/**
+ * Autonomous AI Sentinel: Scans for specific operational anomalies.
+ * Returns a list of structured alerts.
+ */
+export async function runSentinelAnalysis(tasks: Task[]) {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+  const prompt = `
+    Act as the BPD Autonomous AI Sentinel. Analyze the current task registry for anomalies and risks.
+    Focus on:
+    - Stale tasks: In Progress for too long with low progress.
+    - Deadline Slippage: Low progress vs remaining time.
+    - Missing Documentation: Complex tasks with no updates.
+    - Dependency Deadlocks: Circular or stuck blockers.
+
+    Current Task Data: ${JSON.stringify(tasks.map(t => ({
+      id: t.id,
+      name: t.name,
+      status: t.status,
+      progress: t.progress,
+      end: t.plannedEndDate,
+      lastUpdate: t.updatedAt,
+      owner: t.assignedTo
+    })))}
+
+    Return exactly 2-3 highest-priority alerts in JSON format.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        systemInstruction: "You are an autonomous background observer. Identify high-leverage anomalies. Respond ONLY with a JSON array of objects, each containing 'title' and 'message' (1 sentence max each).",
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              message: { type: Type.STRING }
+            },
+            required: ["title", "message"]
+          }
+        }
+      }
+    });
+
+    const results = JSON.parse(response.text || "[]");
+    return results;
+  } catch (error) {
+    console.error("Sentinel Analysis error:", error);
+    return [];
   }
 }
