@@ -1,8 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Task, AppState, TaskStatus } from '../types';
 import { db } from '../services/database';
-import { STATUS_COLORS, getProgramColor } from '../constants';
-import { Search, Plus, Trash2, Calendar, Pencil, Loader2, AlertCircle, ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react';
+import { Search, Plus, Trash2, Calendar, Pencil, ChevronDown, ChevronRight, MoreHorizontal, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import TaskModal from './TaskModal';
 import ConfirmationModal from './ConfirmationModal';
 
@@ -10,246 +9,206 @@ interface TaskListProps {
   state: AppState;
 }
 
-type SortField = 'name' | 'status' | 'program' | 'assignedTo' | 'plannedEndDate';
-type SortDirection = 'asc' | 'desc';
-
 const TaskList: React.FC<TaskListProps> = ({ state }) => {
   const [search, setSearch] = useState('');
-  const [filterProgram, setFilterProgram] = useState('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState<string | null>(null);
-  
-  // Sorting State
-  const [sortField, setSortField] = useState<SortField>('plannedEndDate');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [activeStatusMenu, setActiveStatusMenu] = useState<string | null>(null);
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
+  const toggleGroup = (program: string) => {
+    setCollapsedGroups(prev => ({ ...prev, [program]: !prev[program] }));
   };
 
-  const sortedAndFilteredTasks = useMemo(() => {
-    let result = state.tasks.filter(task => {
-      const matchesSearch = task.name.toLowerCase().includes(search.toLowerCase()) || 
-                            task.assignedTo.toLowerCase().includes(search.toLowerCase());
-      const matchesProgram = filterProgram === 'All' || task.program === filterProgram;
-      return matchesSearch && matchesProgram;
+  const filteredTasks = useMemo(() => {
+    return state.tasks.filter(task => 
+      task.name.toLowerCase().includes(search.toLowerCase()) || 
+      task.assignedTo.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [state.tasks, search]);
+
+  const groupedTasks = useMemo(() => {
+    const groups: Record<string, Task[]> = {};
+    state.programs.forEach(p => groups[p.name] = []);
+    filteredTasks.forEach(task => {
+      if (!groups[task.program]) groups[task.program] = [];
+      groups[task.program].push(task);
     });
+    return groups;
+  }, [filteredTasks, state.programs]);
 
-    result.sort((a, b) => {
-      let valA: any = a[sortField];
-      let valB: any = b[sortField];
-      
-      if (sortField === 'plannedEndDate') {
-        valA = new Date(a.plannedEndDate).getTime();
-        valB = new Date(b.plannedEndDate).getTime();
-      }
+  const getTimelinePosition = (start: string, end: string) => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const totalDays = monthEnd.getDate();
 
-      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
-      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
+    const s = new Date(start);
+    const e = new Date(end);
 
-    return result;
-  }, [state.tasks, search, filterProgram, sortField, sortDirection]);
+    const startOffset = Math.max(0, Math.min(100, ((s.getDate() - 1) / totalDays) * 100));
+    const duration = Math.max(5, ((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24 * totalDays)) * 100);
 
-  const getBlockers = (task: Task) => {
-    if (!task.dependentTasks || task.dependentTasks.length === 0) return [];
-    return task.dependentTasks.map(id => state.tasks.find(t => t.id === id)).filter(t => t && t.status !== TaskStatus.COMPLETED);
+    return { left: `${startOffset}%`, width: `${Math.min(100 - startOffset, duration)}%` };
   };
 
-  const handleStatusChange = async (taskId: string, status: TaskStatus) => {
-    const task = state.tasks.find(t => t.id === taskId);
-    if (status === TaskStatus.COMPLETED && task) {
-       const blockers = getBlockers(task);
-       if (blockers.length > 0) {
-          alert(`CRITICAL BLOCKER: Cannot complete task until dependencies are closed: ${blockers.map(b => b?.name).join(', ')}`);
-          return;
-       }
-    }
-    
-    setIsProcessing(taskId);
+  const handleQuickStatus = async (taskId: string, status: TaskStatus) => {
     const progress = status === TaskStatus.COMPLETED ? 100 : status === TaskStatus.OPEN ? 0 : 50;
     await db.updateTask(taskId, { status, progress });
-    setIsProcessing(null);
-  };
-
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <ArrowUpDown size={12} className="opacity-20 group-hover:opacity-50" />;
-    return sortDirection === 'asc' ? <ChevronUp size={12} className="text-indigo-600" /> : <ChevronDown size={12} className="text-indigo-600" />;
+    setActiveStatusMenu(null);
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 font-['Plus_Jakarta_Sans']">
       {isModalOpen && <TaskModal state={state} onClose={() => setIsModalOpen(false)} taskToEdit={editingTask} />}
-      
       <ConfirmationModal 
         isOpen={!!taskToDelete}
-        title="Delete Registry Record?"
-        message="This will permanently remove the record from the CNMI BPD Cloud. This action is final."
-        onConfirm={async () => {
-          if (taskToDelete) {
-            await db.deleteTask(taskToDelete);
-            setTaskToDelete(null);
-          }
-        }}
+        title="Remove Record"
+        message="This will permanently delete this operational record from the cloud."
+        onConfirm={async () => { if (taskToDelete) { await db.deleteTask(taskToDelete); setTaskToDelete(null); } }}
         onCancel={() => setTaskToDelete(null)}
       />
 
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
+      <header className="flex items-center justify-between px-2">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Registry Stream</h2>
-          <p className="text-slate-500 text-sm font-medium">Real-time task synchronization for CNMI grant programs.</p>
+          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+            Registry Master View
+            <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-black uppercase tracking-widest">Enterprise</span>
+          </h2>
         </div>
-        <button 
-          onClick={() => { setEditingTask(null); setIsModalOpen(true); }}
-          className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg active:scale-95"
-        >
-          <Plus size={20} />
-          Create Task
-        </button>
-      </header>
-
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row gap-4 bg-slate-50/30">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
             <input 
               type="text" 
-              placeholder="Search registry entries..."
-              className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 text-sm font-medium"
+              placeholder="Filter tasks..."
+              className="pl-9 pr-4 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-indigo-500/10 outline-none w-64"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="flex items-center gap-2">
-            <select 
-              className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold focus:outline-none cursor-pointer text-slate-600 outline-none"
-              value={filterProgram}
-              onChange={(e) => setFilterProgram(e.target.value)}
-            >
-              <option value="All">All Active Grants</option>
-              {state.programs.map(p => (
-                <option key={p.id} value={p.name}>{p.name}</option>
-              ))}
-            </select>
-          </div>
+          <button 
+            onClick={() => { setEditingTask(null); setIsModalOpen(true); }}
+            className="bg-indigo-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-sm"
+          >
+            <Plus size={14} /> New Task
+          </button>
         </div>
+      </header>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
+      <div className="bg-[#1e1e2d] rounded-xl border border-slate-800 shadow-2xl overflow-hidden">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50/50 text-slate-500 text-[11px] font-bold uppercase tracking-wider">
-                <th className="px-6 py-4 cursor-pointer group hover:bg-slate-100 transition-colors" onClick={() => handleSort('name')}>
-                  <div className="flex items-center gap-2">Operation <SortIcon field="name" /></div>
-                </th>
-                <th className="px-6 py-4 cursor-pointer group hover:bg-slate-100 transition-colors" onClick={() => handleSort('status')}>
-                  <div className="flex items-center gap-2">Status <SortIcon field="status" /></div>
-                </th>
-                <th className="px-6 py-4 cursor-pointer group hover:bg-slate-100 transition-colors" onClick={() => handleSort('program')}>
-                  <div className="flex items-center gap-2">Program <SortIcon field="program" /></div>
-                </th>
-                <th className="px-6 py-4 cursor-pointer group hover:bg-slate-100 transition-colors" onClick={() => handleSort('assignedTo')}>
-                  <div className="flex items-center gap-2">Owner <SortIcon field="assignedTo" /></div>
-                </th>
-                <th className="px-6 py-4 cursor-pointer group hover:bg-slate-100 transition-colors" onClick={() => handleSort('plannedEndDate')}>
-                  <div className="flex items-center gap-2">Target Date <SortIcon field="plannedEndDate" /></div>
-                </th>
-                <th className="px-6 py-4 text-right">Actions</th>
+              <tr className="border-b border-slate-800 text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-900/50">
+                <th className="w-10 px-4 py-3"></th>
+                <th className="px-4 py-3 sticky left-0 z-20 bg-[#1e1e2d]">Operation Name</th>
+                <th className="px-4 py-3 w-40">Timeline (Current Month)</th>
+                <th className="px-4 py-3 w-32">Assignee</th>
+                <th className="px-4 py-3 w-32">Status</th>
+                <th className="px-4 py-3 w-20 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {sortedAndFilteredTasks.map((task) => {
-                const blockers = getBlockers(task);
-                const isBlocked = blockers.length > 0;
-
-                return (
-                  <tr key={task.id} className="hover:bg-indigo-50/20 transition-colors group">
-                    <td className="px-6 py-5">
-                      <div className="flex items-start gap-3">
-                        {isBlocked && <AlertCircle size={14} className="text-amber-500 mt-1 flex-shrink-0" />}
-                        <div>
-                          <div className="font-semibold text-slate-800 text-sm leading-tight">{task.name}</div>
-                          <div className="text-[11px] text-slate-400 truncate max-w-xs mt-1 font-medium italic">{task.description || 'No additional details provided.'}</div>
-                        </div>
-                      </div>
+            <tbody className="text-slate-300">
+              {state.programs.map(program => (
+                <React.Fragment key={program.id}>
+                  <tr className="bg-slate-800/30 border-b border-slate-800/50 group cursor-pointer" onClick={() => toggleGroup(program.name)}>
+                    <td className="px-4 py-2 text-center">
+                      {collapsedGroups[program.name] ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                     </td>
-                    <td className="px-6 py-5">
-                      {isProcessing === task.id ? (
-                        <div className="flex items-center gap-2 text-indigo-600 text-[10px] font-bold">
-                          <Loader2 size={12} className="animate-spin" />
-                          SYNCING
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-1">
-                          <select
-                            value={task.status}
-                            onChange={(e) => handleStatusChange(task.id, e.target.value as TaskStatus)}
-                            className={`text-[10px] font-bold uppercase px-2.5 py-1.5 rounded-lg outline-none appearance-none cursor-pointer border border-transparent hover:border-slate-200 transition-all ${STATUS_COLORS[task.status]}`}
-                          >
-                            {Object.values(TaskStatus).map(s => (
-                              <option key={s} value={s}>{s.replace('_', ' ')}</option>
-                            ))}
-                          </select>
-                          {isBlocked && (
-                            <span className="text-[9px] font-semibold text-amber-600 tracking-tight">Blocked by peer tasks</span>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-5">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border tracking-tight ${getProgramColor(task.program)}`}>
-                        {task.program}
-                      </span>
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-indigo-100 text-indigo-700 rounded-lg flex items-center justify-center text-[10px] font-bold">
-                          {task.assignedTo.substring(0, 2).toUpperCase()}
-                        </div>
-                        <span className="text-xs text-slate-600 font-semibold">{task.assignedTo}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 text-xs text-slate-500 font-medium">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar size={14} className="text-slate-300" />
-                        {new Date(task.plannedEndDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                        <button 
-                          onClick={() => { setEditingTask(task); setIsModalOpen(true); }}
-                          className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-white transition-all shadow-sm"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button 
-                          onClick={() => setTaskToDelete(task.id)}
-                          className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-white transition-all shadow-sm"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                    <td colSpan={5} className="px-2 py-2">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-black uppercase tracking-widest" style={{ color: program.color === 'sky' ? '#7dd3fc' : program.color === 'cyan' ? '#67e8f9' : '#818cf8' }}>
+                          {program.name}
+                        </span>
+                        <span className="text-[10px] bg-slate-700/50 px-2 py-0.5 rounded-md font-bold text-slate-400">
+                          {groupedTasks[program.name].length} Tasks
+                        </span>
                       </div>
                     </td>
                   </tr>
-                );
-              })}
+
+                  {!collapsedGroups[program.name] && groupedTasks[program.name].map(task => (
+                    <tr key={task.id} className="group border-b border-slate-800/30 hover:bg-slate-800/20 transition-colors relative">
+                      <td className="px-4 py-2">
+                         <div className={`w-1.5 h-1.5 rounded-full ${task.priority === 'Critical' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]' : 'bg-slate-600'}`}></div>
+                      </td>
+                      <td className="px-4 py-2 sticky left-0 z-10 bg-[#1e1e2d] group-hover:bg-[#252538] transition-colors border-r border-slate-800/50">
+                        <div className="flex flex-col min-w-[200px]">
+                          <span className="text-xs font-bold text-slate-100 truncate">{task.name}</span>
+                          <span className="text-[9px] text-slate-500 font-medium truncate">{task.description || 'No context provided.'}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2">
+                        <div className="w-full h-4 bg-slate-800/50 rounded-full relative overflow-hidden">
+                          <div 
+                            className="absolute h-full bg-indigo-500/80 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.3)] transition-all duration-700"
+                            style={getTimelinePosition(task.startDate, task.plannedEndDate)}
+                          ></div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 bg-slate-700 text-[9px] font-black text-slate-300 rounded-md flex items-center justify-center">
+                            {task.assignedTo.substring(0, 2).toUpperCase()}
+                          </div>
+                          <span className="text-[10px] font-bold text-slate-400">{task.assignedTo}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 relative">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setActiveStatusMenu(activeStatusMenu === task.id ? null : task.id); }}
+                          className={`w-full text-[9px] font-black uppercase py-1 px-2 rounded flex items-center justify-between group/btn transition-all ${
+                            task.status === TaskStatus.COMPLETED ? 'bg-emerald-500 text-white shadow-[0_0_10px_rgba(16,185,129,0.3)]' :
+                            task.status === TaskStatus.IN_PROGRESS ? 'bg-amber-500 text-white shadow-[0_0_10px_rgba(245,158,11,0.3)]' :
+                            'bg-slate-700 text-slate-300'
+                          }`}
+                        >
+                          {task.status.replace('_', ' ')}
+                          <ChevronDown size={10} className="opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                        </button>
+                        
+                        {activeStatusMenu === task.id && (
+                          <div className="absolute bottom-full left-0 mb-2 w-32 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl z-[100] animate-in slide-in-from-bottom-2 p-1">
+                            {Object.values(TaskStatus).map(s => (
+                              <button
+                                key={s}
+                                onClick={() => handleQuickStatus(task.id, s)}
+                                className="w-full text-left px-3 py-1.5 text-[10px] font-bold uppercase hover:bg-slate-700 rounded-md transition-colors"
+                              >
+                                {s.replace('_', ' ')}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                          <button onClick={() => { setEditingTask(task); setIsModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-white transition-colors"><Pencil size={14}/></button>
+                          <button onClick={() => setTaskToDelete(task.id)} className="p-1.5 text-slate-500 hover:text-rose-500 transition-colors"><Trash2 size={14}/></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  
+                  {!collapsedGroups[program.name] && (
+                    <tr className="bg-slate-900/20">
+                      <td className="px-4 py-2"></td>
+                      <td colSpan={5} className="px-2 py-2">
+                        <button 
+                          onClick={() => { setEditingTask({ program: program.name } as any); setIsModalOpen(true); }}
+                          className="text-[10px] font-black text-slate-500 hover:text-indigo-400 uppercase tracking-widest flex items-center gap-2 transition-colors px-2 py-1 rounded hover:bg-slate-800"
+                        >
+                          <Plus size={12} /> Add Task to {program.name}
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
             </tbody>
           </table>
-          {sortedAndFilteredTasks.length === 0 && (
-            <div className="py-24 text-center">
-              <Search size={32} className="text-slate-200 mx-auto mb-4" />
-              <h3 className="font-bold text-slate-800 mb-1">No matches found</h3>
-              <p className="text-sm text-slate-400 max-w-xs mx-auto">Try adjusting your filters or checking the spelling of the task or staff member.</p>
-            </div>
-          )}
         </div>
       </div>
     </div>

@@ -15,7 +15,7 @@ import MyMission from './components/MyMission';
 import { Bell, Search, AlertCircle, CheckCircle, Wifi, WifiOff, Clock, Inbox, ChevronDown, User as UserIcon, LogOut, Sparkles, Shield, Globe } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [activeView, setActiveView] = useState('dashboard');
+  const [activeView, setActiveView] = useState('tasks');
   const [state, setState] = useState<AppState | null>(null);
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const [hasKeys, setHasKeys] = useState(true);
@@ -79,7 +79,7 @@ const App: React.FC = () => {
       case 'team': return <TeamView state={state} />;
       case 'docs': return <DocsViewer />;
       case 'settings': return <SettingsView state={state} />;
-      default: return <Dashboard state={state} onNavigate={setActiveView} />;
+      default: return <TaskList state={state} />;
     }
   };
 

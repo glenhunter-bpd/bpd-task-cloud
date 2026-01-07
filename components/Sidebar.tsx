@@ -8,9 +8,9 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView }) => {
   const menuItems = [
-    { id: 'dashboard', label: 'Office Overview', icon: LayoutDashboard },
-    { id: 'mission', label: 'Personal Mission', icon: Target }, 
     { id: 'tasks', label: 'Grant Registry', icon: CheckSquare },
+    { id: 'mission', label: 'Personal Mission', icon: Target }, 
+    { id: 'dashboard', label: 'Office Overview', icon: LayoutDashboard },
     { id: 'kanban', label: 'Workflow Board', icon: BarChart2 },
     { id: 'timeline', label: 'Nexus Timeline', icon: GitGraph },
     { id: 'grants', label: 'Funding Programs', icon: Landmark },
